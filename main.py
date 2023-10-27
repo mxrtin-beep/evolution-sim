@@ -14,7 +14,7 @@ def main():
 
 	STEPS_PER_GENERATION = 30
 	N_GENERATIONS = 1
-	POPULATION = 10
+	POPULATION = 100
 
 	environment = Environment(WIDTH, HEIGHT, POPULATION)
 
@@ -58,7 +58,7 @@ def main():
 				# Get decisions from cells
 				cells_arr = environment.get_cells()
 
-				print(cells_arr[0])
+				#print(cells_arr[0])
 
 				for i in range(len(cells_arr)):
 
@@ -69,10 +69,9 @@ def main():
 					cell.activate_sensory_neurons()
 					cell.think()
 
-					# Get Decision and execute
-					decision = cell.get_decision()
-					cell.execute_decision(decision)
-
+					# Execute decision
+					decision_list = cell.execute_decision()
+					
 					# Grow
 					cell.age_up()
 
@@ -81,7 +80,7 @@ def main():
 				for cell in cells_arr:
 					screen.set_at((cell.get_x(), cell.get_y()), cell.get_color())
 
-				pygame.time.wait(5)
+				pygame.time.wait(1)
 
 		win.blit(pygame.transform.scale(screen, win.get_rect().size), (0, 0))
 		pygame.display.update()

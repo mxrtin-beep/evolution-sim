@@ -2,7 +2,7 @@
 import random
 import secrets
 from brain import Brain
-
+import numpy as np
 
 class Cell:
 
@@ -62,21 +62,7 @@ class Cell:
 		self.age += 1
 
 
-	def get_decision(self):
-		return self.brain.make_decision()
-
-
-	def execute_decision(self, decision):
-
-
-		if decision == 'MYf' and self.y_pos + 1 < self.environment.get_y_size() and self.environment.get_grid()[self.x_pos, self.y_pos+1] == 0:
-			self.y_pos += 1
-			self.environment.grid[self.x_pos, self.y_pos] = self.id_number
-			self.environment.grid[self.x_pos, self.y_pos - 1] = 0
-			self.x_dir = 0
-			self.y_dir = 1
-
-
+	### BRAIN METHODS ###
 
 	def activate_sensory_neurons(self):
 
@@ -96,6 +82,40 @@ class Cell:
 
 	def think(self):
 		self.brain.forward_pass()
+
+	def execute_decision(self):
+
+		decision_list = self.brain.get_decisions()
+		dirs = [-1, 0, 1]
+
+		for decision in decision_list:
+			# Movement actions
+			if decision == 'Mfd': # forward
+				self.move_cell_(self.x_dir, self.y_dir)
+			elif decision == 'Mrn': # random
+				self.move_cell_(dirs[random.randint(0, 2)], dirs[random.randint(0, 2)])
+			elif decision == 'Mrv': # reverse
+				self.move_cell_(-self.x_dir, -self.y_dir)
+			elif decision == 'Mrt': # right
+				self.move_cell_(self.y_dir, -self.x_dir)
+			elif decision == 'Mlt': # left
+				self.move_cell_(-self.y_dir, self.x_dir)
+			elif decision == 'MXf': # east
+				self.move_cell_(1, 0)
+			elif decision == 'MXr': # west
+				self.move_cell_(-1, 0)
+			elif decision == 'MYf': # south
+				self.move_cell_(0, 1)
+			elif decision == 'MYr':	# north
+				self.move_cell_(0, -1)
+
+			elif decision == 'R+':	# increase responsiveness
+				self.brain.update_responsiveness(1)
+			elif decision == 'R-':	# increase responsiveness
+				self.brain.update_responsiveness(-1)
+	
+		return decision_list
+
 
 	### HELPER METHODS ###
 
@@ -161,7 +181,7 @@ class Cell:
 		fwd_info = self.get_coordinate_info_(fwd_x, fwd_y)
 
 		if fwd_info > 0:
-			fwd_cell_genome = self.environment.get_cells()[fwd_info].get_genome()
+			fwd_cell_genome = self.environment.get_cells()[fwd_info - 1].get_genome()
 			percent_similar = get_genetic_similarity(fwd_cell_genome, self.genome)
 			return percent_similar*2 - 1 # from -1 to 1
 
@@ -185,6 +205,33 @@ class Cell:
 			distance += 1
 
 		return distance / (max(x_size, y_size)-1)
+
+
+	def is_valid_move_x(self, x_movement):
+		return self.x_pos + x_movement >= 0 and self.x_pos + x_movement < self.environment.get_x_size() and self.environment.get_grid()[self.x_pos + x_movement, self.y_pos] == 0
+
+	def is_valid_move_y(self, y_movement):
+		return self.y_pos + y_movement >= 0 and self.y_pos + y_movement < self.environment.get_y_size() and self.environment.get_grid()[self.x_pos, self.y_pos + y_movement] == 0
+
+	def move_cell_(self, x_movement, y_movement):
+
+		# Move X
+		if x_movement != 0 and self.is_valid_move_x(x_movement):
+			self.x_pos += x_movement # update position
+			self.environment.grid[self.x_pos, self.y_pos] = self.id_number # update grid
+			self.environment.grid[self.x_pos - x_movement, self.y_pos] = 0
+			self.x_dir = int(x_movement / np.abs(x_movement)) # update direction (-1, 0, or 1)
+		else:
+			self.x_dir = 0
+
+		# Move Y
+		if y_movement != 0 and self.is_valid_move_y(y_movement):
+			self.y_pos += y_movement
+			self.environment.grid[self.x_pos, self.y_pos] = self.id_number
+			self.environment.grid[self.x_pos, self.y_pos - y_movement] = 0
+			self.y_dir = int(y_movement / np.abs(y_movement))
+		else:
+			self.y_dir = 0
 
 	### TO STRING ###
 

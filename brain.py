@@ -2,12 +2,17 @@
 
 import random
 import numpy as np
+import math
+
+def sigmoid(x):
+	return 1 / (1 + math.exp(-x))
 
 class Neuron:
 
 	def __init__(self):
 		self.inputs = {} # Map from neuron to weight
-		self.activation = 0 # random.uniform(0, 1)
+		self.activation = 0 
+		self.threshold = 0.5 # 0 to 1
 
 	def add_input_neuron(self, input_key, input_weight):
 		self.inputs[input_key] = input_weight
@@ -21,8 +26,16 @@ class Neuron:
 	def get_activation(self):
 		return self.activation
 
+	def get_threshold(self):
+		return self.threshold
+
 	def get_inputs(self):
 		return self.inputs
+
+	def update_threshold(self, change):
+
+		new_threshold = sigmoid(change + self.threshold)
+		self.threshold = new_threshold
 
 	def __str__(self):
 		s = ''
@@ -66,7 +79,7 @@ class Brain:
 				sink_key = list(self.action_neurons.keys())[sink_idx]
 				sink_neuron = self.action_neurons[sink_key]
 
-			connection_weight = int(weight) / 8e10
+			connection_weight = int(str(weight), 2) / 65535
 
 			sink_neuron.add_input_neuron(source_key, connection_weight)
 			#print(f'Making Connection from {source_key} to {sink_key} ({sink_neuron}).')
@@ -99,8 +112,8 @@ class Brain:
 
 
 		self.action_neurons = {
-			'Osc': Neuron(), 	# set oscillatory period
-			'Res': Neuron(), 	# set responsiveness
+			'R+': Neuron(), 	# increase responsiveness
+			'R-': Neuron(), 	# decrease responsiveness
 			'Mfd': Neuron(), 	# move forward
 			'Mrn': Neuron(), 	# move random
 			'Mrv': Neuron(),	# move reverse
@@ -108,15 +121,11 @@ class Brain:
 			'Mlt': Neuron(),	# move left
 			'MXf': Neuron(),	# move east
 			'MXr': Neuron(),	# move west
-			'MYb': Neuron(),	# move north
 			'MYf': Neuron(),	# move south
+			'MYr': Neuron(),	# move north
 		}
 
 		self.build_connections(genome)
-
-
-	def make_decision(self):
-		return 'MYf'
 
 	# Sets new activation of sensory neurons
 	def activate_sensory_neuron(self, key, new_activation):
@@ -166,6 +175,34 @@ class Brain:
 
 
 
+	def get_decisions(self):
+
+		action_list = []
+
+		for key in self.action_neurons.keys():
+			
+			action_neuron_activation = self.action_neurons[key].get_activation()
+			action_neuron_threshold = self.action_neurons[key].get_threshold()
+
+			if action_neuron_activation > action_neuron_threshold:
+				action_list.append(key)
+
+		return action_list
+
+
+	def update_responsiveness(self, change):
+
+		for key in self.sensory_neurons.keys():
+			neuron = self.sensory_neurons[key]
+			neuron.update_threshold(change)
+
+		for key in self.inner_neurons.keys():
+			neuron = self.inner_neurons[key]
+			neuron.update_threshold(change)
+
+		for key in self.action_neurons.keys():
+			neuron = self.action_neurons[key]
+			neuron.update_threshold(change)
 
 	def __str__(self):
 		s = '\n'
@@ -177,12 +214,12 @@ class Brain:
 		for key in self.inner_neurons.keys():
 			neuron = self.inner_neurons[key]
 			if neuron.get_num_connections() > 0:
-				s += f'{neuron} Inner Neuron {key}\n'
+				s += f'Inner Neuron {key}; Activation {neuron.get_activation()}\n'
 
 		for key in self.action_neurons.keys():
 			neuron = self.action_neurons[key]
-			if neuron.get_num_connections() > 0:
-				s += f'{neuron} to Action Neuron {key}\n'
+			#if neuron.get_num_connections() > 0:
+			s += f'Action Neuron {key}; Activation {neuron.get_activation()}\n'
 
 		return s
 
