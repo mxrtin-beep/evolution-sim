@@ -1,5 +1,7 @@
 
 import random
+import numpy as np
+
 from cell import Cell
 
 n_genes = 4
@@ -7,24 +9,36 @@ n_inner_neurons = 2
 
 class Environment:
 
-	def __init__(self, x_size, y_size, population, steps_per_gen, n_generations):
+	def __init__(self, x_size, y_size, population):
 
 		self.x_size = x_size
 		self.y_size = y_size
 		self.population = population
-		self.steps_per_gen = steps_per_gen
-
 
 		self.cells = []
 
+		self.grid = np.zeros((x_size, y_size))
+
+
 		for i in range(population):
-			x_i = random.randint(0, self.x_size)
-			y_i = random.randint(0, self.y_size)
+			x_i = random.randint(0, self.x_size-1)
+			y_i = random.randint(0, self.y_size-1)
 
-			self.cells.append(Cell(x_i, y_i, n_genes, n_inner_neurons, i))
+			while self.grid[x_i, y_i] != 0:
+				x_i = random.randint(0, self.x_size-1)
+				y_i = random.randint(0, self.y_size-1)
 
+			self.cells.append(Cell(x_i, y_i, n_genes, n_inner_neurons, i+1, self))
+			self.grid[x_i, y_i] = i+1
 
-		self.grid = []
+	def get_x_size(self):
+		return self.x_size
+
+	def get_y_size(self):
+		return self.y_size
 
 	def get_cells(self):
 		return self.cells
+
+	def get_grid(self):
+		return self.grid

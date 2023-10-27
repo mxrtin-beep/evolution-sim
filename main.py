@@ -12,7 +12,11 @@ def main():
 	WHITE = (255, 255, 255)
 	SCALING_FACTOR = 3
 
-	e = Environment(WIDTH, HEIGHT, 100, 30, 100)
+	STEPS_PER_GENERATION = 30
+	N_GENERATIONS = 1
+	POPULATION = 10
+
+	environment = Environment(WIDTH, HEIGHT, POPULATION)
 
 	pygame.init()
 
@@ -34,16 +38,54 @@ def main():
 
 
 		# Draw Cells
-		cells_arr = e.get_cells()
+		cells_arr = environment.get_cells()
 		for cell in cells_arr:
 			screen.set_at((cell.get_x(), cell.get_y()), cell.get_color())
 
 
 
 
+		### Generational Loop ###
+
+		for generation in range(N_GENERATIONS):
+
+
+
+			### Step Loop ###
+
+			for step in range(STEPS_PER_GENERATION):
+
+				# Get decisions from cells
+				cells_arr = environment.get_cells()
+
+				print(cells_arr[0])
+
+				for i in range(len(cells_arr)):
+
+					# Get cells
+					cell = cells_arr[i]
+
+					# Update Sensory Neurons
+					cell.activate_sensory_neurons()
+					cell.think()
+
+					# Get Decision and execute
+					decision = cell.get_decision()
+					cell.execute_decision(decision)
+
+					# Grow
+					cell.age_up()
+
+				# Update board
+				screen.fill(WHITE)
+				for cell in cells_arr:
+					screen.set_at((cell.get_x(), cell.get_y()), cell.get_color())
+
+				pygame.time.wait(5)
+
 		win.blit(pygame.transform.scale(screen, win.get_rect().size), (0, 0))
 		pygame.display.update()
-		
+
 	# Quit Pygame
 	pygame.quit()
 	sys.exit()
