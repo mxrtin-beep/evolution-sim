@@ -9,11 +9,12 @@ n_inner_neurons = 2
 
 class Environment:
 
-	def __init__(self, x_size, y_size, population):
+	def __init__(self, x_size, y_size, population, mutation_rate):
 
 		self.x_size = x_size
 		self.y_size = y_size
 		self.population = population
+		self.mutation_rate = mutation_rate
 
 		self.cells = []
 
@@ -42,3 +43,14 @@ class Environment:
 
 	def get_grid(self):
 		return self.grid
+
+	def get_next_generation_asexually(self):
+
+		for i in range(len(self.cells)):
+			self.cells[i].mutate_genome(self.mutation_rate)
+			
+
+
+
+
+

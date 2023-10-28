@@ -23,6 +23,7 @@ class Cell:
 		for i in range(n_genes):
 			self.genome.append(secrets.token_hex(4))	# 4 genes by 4 bytes = 16 bytes, 128 bits
 
+		self.n_inner_neurons = n_inner_neurons
 		self.brain = Brain(self.genome, n_inner_neurons)
 
 		self.id_number = id_number
@@ -61,6 +62,9 @@ class Cell:
 	def age_up(self):
 		self.age += 1
 
+
+	def set_genome(self, new_genome):
+		self.genome = new_genome
 
 	### BRAIN METHODS ###
 
@@ -233,12 +237,45 @@ class Cell:
 		else:
 			self.y_dir = 0
 
+	### REPRODUCTION ###
+
+	def get_mutated_genome(self, mutation_rate):
+
+		nucleotides = '0123456789abcdef'
+		genome_mut = []
+
+		for gene in self.genome:
+			new_gene = ''
+
+			for i in range(len(gene)):
+				mutation_event = random.random() # 0 to 1
+
+				if mutation_event > mutation_rate: # no mutation
+					new_gene += gene[i]
+				else:
+					new_gene += nucleotides[random.randint(0, len(nucleotides)-1)]
+
+			assert(len(new_gene) == len(gene))
+			genome_mut.append(new_gene)
+
+		return genome_mut
+
+
+	def mutate_genome(self, mutation_rate):
+
+		genome_mut = self.get_mutated_genome(mutation_rate)
+		self.genome = genome_mut
+		self.brain = Brain(self.genome, self.n_inner_neurons)
+
 	### TO STRING ###
 
 	def __str__(self):
 		s = f'Cell {self.id_number}\n Genome: {self.genome}\n Brain: {self.brain}\n'
 		return s
 
+
+
+	
 
 # percent similar
 def get_genetic_similarity(genome1, genome2):
