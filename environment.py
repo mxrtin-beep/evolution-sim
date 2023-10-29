@@ -145,6 +145,7 @@ class Environment:
 			new_cell_list.append(new_cell)
 
 		self.cells = new_cell_list
+		self.mutate_all_cells()
 		self.shuffle_cells()
 		self.fix_grid()
 
@@ -218,12 +219,19 @@ def get_child_genome(genome_list):
 
 def get_child_gene(gene_list):
 
+
+	# Get each base randomly
+	'''
 	child_gene = ''
 
 	for i in range(len(gene_list[0])): # iterate through letters of a gene
 
 		parent_idx = random.randint(0, len(gene_list) - 1)
 		child_gene += gene_list[parent_idx][i]
+	'''
+
+	parent_idx = random.randint(0, len(gene_list) - 1)
+	child_gene = gene_list[parent_idx]
 
 	return child_gene
 

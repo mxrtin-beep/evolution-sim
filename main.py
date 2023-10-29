@@ -30,6 +30,7 @@ def main():
 	N_GENERATIONS = 1000
 	POPULATION = 100
 	MUTATION_RATE = 0.00
+	N_PARENTS = 2
 
 	# Statistics
 	survival_rate_stat = []
@@ -121,7 +122,7 @@ def main():
 					running = False
 					quit()
 				else:
-					environment.get_next_generation(n_parents=2, new_population=NEW_POPULATION)
+					environment.get_next_generation(n_parents=N_PARENTS, new_population=NEW_POPULATION)
 				plt.plot(survival_rate_stat, label='Percent Surviving', color='red')
 				plt.plot(genetic_diversity_stat, label='Genetic Diversity', color='blue')
 				plt.xlabel('Generation')

@@ -273,6 +273,9 @@ class Cell:
 
 	def get_mutated_genome(self, mutation_rate):
 
+		if mutation_rate == 0:
+			return self.genome
+		
 		nucleotides = '0123456789abcdef'
 		genome_mut = []
 
