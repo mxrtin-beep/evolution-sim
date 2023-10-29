@@ -4,6 +4,7 @@ import sys
 import random
 from environment import Environment
 from pygame.locals import *
+import matplotlib.pyplot as plt
 
 def wait_for_space():
 	while True:
@@ -22,12 +23,19 @@ def main():
 	WHITE = (255, 255, 255)
 	SCALING_FACTOR = 3
 
-	STEPS_PER_GENERATION = 150
-	N_GENERATIONS = 10
-	POPULATION = 100
-	MUTATION_RATE = 0.05
+	STEPS_PER_GENERATION = 200
+	N_GENERATIONS = 1000
+	POPULATION = 25
+	MUTATION_RATE = 0.00
+
+	# Statistics
+	percent_surviving_stat = []
+	genetic_diversity_stat = []
 
 	environment = Environment(WIDTH, HEIGHT, POPULATION, MUTATION_RATE)
+
+	NEW_POPULATION = POPULATION
+
 
 	pygame.init()
 
@@ -59,19 +67,18 @@ def main():
 		while updating:
 			for generation in range(N_GENERATIONS):
 
-				print(f'Generation {generation}')
+				print(f'Generation {generation+1}')
 				### Step Loop ###
+
 
 				for step in range(STEPS_PER_GENERATION):
 
 					# Get decisions from cells
 					cells_arr = environment.get_cells()
 
-					#print(cells_arr[0])
-
 					for i in range(len(cells_arr)):
 
-						# Get cells
+						# Get cell
 						cell = cells_arr[i]
 
 						# Update Sensory Neurons
@@ -84,23 +91,48 @@ def main():
 						# Grow
 						cell.age_up()
 
+
+
 					# Update board
 					screen.fill(WHITE)
 					for cell in cells_arr:
 						screen.set_at((cell.get_x(), cell.get_y()), cell.get_color())
 
-					pygame.time.wait(1)
+					#pygame.time.wait(3)
 					win.blit(pygame.transform.scale(screen, win.get_rect().size), (0, 0))
 					pygame.display.update()
 
+					### Step Loop ###
 				
-				updating = False
-				wait_for_space()
-				updating = True
-				environment.get_next_generation_asexually()
+				#updating = False
+				#wait_for_space()
+				#updating = True
+				genetic_diversity = environment.calculate_genetic_diversity()
+				genetic_diversity_stat.append(genetic_diversity)
 
+				percent_surviving = environment.enact_selection_pressure()
+				percent_surviving_stat.append(percent_surviving)
+				if percent_surviving == 0:
+					print('Everyone Died!')
+					updating = False
+					running = False
+					quit()
+				else:
+					environment.get_next_generation_asexually(new_population=NEW_POPULATION)
+				plt.plot(percent_surviving_stat, label='Percent Surviving', color='red')
+				plt.plot(genetic_diversity_stat, label='Genetic Diversity', color='blue')
+				plt.xlabel('Generation')
+				if generation == 0:
+					plt.legend()
+				plt.savefig('stats.png')
 
+				
+				print(genetic_diversity)
+				### Generation Loop ###
 
+			updating = False
+
+			### Updating Loop ###
 
 
 		win.blit(pygame.transform.scale(screen, win.get_rect().size), (0, 0))
@@ -110,6 +142,8 @@ def main():
 	# Quit Pygame
 	pygame.quit()
 	sys.exit()
+
+	plt.savefig('percent_surviving.png')
 
 
 

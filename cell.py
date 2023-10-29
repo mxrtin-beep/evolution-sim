@@ -15,8 +15,8 @@ class Cell:
 		self.x_pos = x
 		self.y_pos = y
 
-		self.x_dir = dirs[random.randint(0, 2)]
-		self.y_dir = dirs[random.randint(0, 2)]
+		self.x_dir = dirs[random.randint(0, len(dirs) - 1)]
+		self.y_dir = dirs[random.randint(0, len(dirs) - 1)]
 
 		self.genome = []
 
@@ -65,6 +65,19 @@ class Cell:
 
 	def set_genome(self, new_genome):
 		self.genome = new_genome
+
+	def set_position(self, new_x, new_y):
+		self.x_pos = new_x
+		self.y_pos = new_y
+
+	def set_id(self, new_id):
+		self.id_number = new_id
+
+
+	def randomize_direction(self):
+		dirs = [-1, 0, 1]
+		self.x_dir = dirs[random.randint(0, len(dirs) - 1)]
+		self.y_dir = dirs[random.randint(0, len(dirs) - 1)]
 
 	### BRAIN METHODS ###
 
@@ -184,6 +197,10 @@ class Cell:
 		fwd_y = self.y_pos + self.y_dir
 		fwd_info = self.get_coordinate_info_(fwd_x, fwd_y)
 
+		if fwd_info > self.environment.get_population():
+			print(fwd_info, self.environment.get_population())
+			quit()
+
 		if fwd_info > 0:
 			fwd_cell_genome = self.environment.get_cells()[fwd_info - 1].get_genome()
 			percent_similar = get_genetic_similarity(fwd_cell_genome, self.genome)
@@ -208,7 +225,7 @@ class Cell:
 			y_i += 1
 			distance += 1
 
-		return distance / (max(x_size, y_size)-1)
+		return (distance-1) / (max(x_size, y_size)-1)
 
 
 	def is_valid_move_x(self, x_movement):
@@ -267,10 +284,11 @@ class Cell:
 		self.genome = genome_mut
 		self.brain = Brain(self.genome, self.n_inner_neurons)
 
+
 	### TO STRING ###
 
 	def __str__(self):
-		s = f'Cell {self.id_number}\n Genome: {self.genome}\n Brain: {self.brain}\n'
+		s = f'Cell {self.id_number}\n Position {self.x_pos},{self.y_pos}\n Genome: {self.genome}\n Brain: {self.brain}\n'
 		return s
 
 
