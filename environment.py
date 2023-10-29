@@ -4,7 +4,7 @@ import numpy as np
 
 from cell import Cell
 
-n_genes = 4
+n_genes = 10
 n_inner_neurons = 2
 
 class Environment:
@@ -83,6 +83,16 @@ class Environment:
 			cell = self.cells[i]
 			self.grid[cell.get_x(), cell.get_y()] = i+1
 
+	def shuffle_cells(self):
+
+		new_cell_list = []
+
+		while len(self.cells) > 0:
+			new_cell_list.append(self.cells.pop(random.randint(0, len(self.cells) - 1)))
+
+		self.cells = new_cell_list
+		self.fix_cell_ids()
+
 	def get_next_generation_asexually(self, new_population):
 
 		self.mutate_all_cells()
@@ -107,12 +117,46 @@ class Environment:
 				new_cell = Cell(x_i, y_i, n_genes, n_inner_neurons, len(self.cells), self)
 				new_cell.set_genome(new_genome)
 				self.cells.append(new_cell)
-				self.grid[x_i, y_i] = len(self.cells)
 
 		self.fix_cell_ids()
 		self.fix_grid()
 
 
+
+
+	def get_next_generation_sexually(self, n_parents, new_population):
+
+		new_cell_list = []
+
+		for i in range(new_population):
+
+			cell_idx = i%len(self.cells)  # cycle through population ensuring everyone can mate
+
+			parent_genomes = [self.cells[cell_idx].get_genome()]
+
+			for j in range(n_parents - 1): # get random parent(s)
+
+				parent_genomes.append(self.cells[random.randint(0, len(self.cells) - 1)].get_genome())
+
+			child_genome = get_child_genome(parent_genomes)
+			x_i, y_i = self.find_free_position()
+			new_cell = Cell(x_i, y_i, n_genes, n_inner_neurons, i+1, self)
+			new_cell.set_genome(child_genome)
+			new_cell_list.append(new_cell)
+
+		self.cells = new_cell_list
+		self.shuffle_cells()
+		self.fix_grid()
+
+
+	def get_next_generation(self, n_parents, new_population):
+
+		if n_parents > 1:
+			self.get_next_generation_sexually(n_parents, new_population)
+		else:
+			self.get_next_generation_asexually(new_population)
+
+		self.population
 	# Kill certain cells
 	def enact_selection_pressure(self):
 
@@ -152,6 +196,40 @@ class Environment:
 				if gene not in unique_genes:
 					unique_genes.append(gene)
 
-		return float(len(unique_genes) - n_genes) / float(n_possible_genes) * 100
+		return float(len(unique_genes)) / float(n_possible_genes) * 100
+
+
+
+def get_child_genome(genome_list):
+
+	child_genome = []
+
+	for i in range(len(genome_list[0])): # iterate through each gene
+		gene_list = []
+		for j in range(len(genome_list)): # iterate through each genome
+			gene_list.append(genome_list[j][i])	# append the ith gene to gene_list
+
+		child_genome.append(get_child_gene(gene_list))
+
+	assert(len(child_genome) == len(genome_list[0]))
+	return child_genome
+
+
+
+def get_child_gene(gene_list):
+
+	child_gene = ''
+
+	for i in range(len(gene_list[0])): # iterate through letters of a gene
+
+		parent_idx = random.randint(0, len(gene_list) - 1)
+		child_gene += gene_list[parent_idx][i]
+
+	return child_gene
+
+
+
+
+
 
 

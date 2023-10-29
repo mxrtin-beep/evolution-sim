@@ -114,6 +114,8 @@ class Brain:
 		self.action_neurons = {
 			'R+': Neuron(), 	# increase responsiveness
 			'R-': Neuron(), 	# decrease responsiveness
+			'O+': Neuron(),		# increase oscillatory delay
+			'O-': Neuron(),		# decrease oscillator delay
 			'Mfd': Neuron(), 	# move forward
 			'Mrn': Neuron(), 	# move random
 			'Mrv': Neuron(),	# move reverse
@@ -188,7 +190,6 @@ class Brain:
 				action_list.append(key)
 
 		return action_list
-
 
 	def update_responsiveness(self, change):
 

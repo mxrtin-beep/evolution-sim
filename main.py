@@ -5,6 +5,7 @@ import random
 from environment import Environment
 from pygame.locals import *
 import matplotlib.pyplot as plt
+import os
 
 def wait_for_space():
 	while True:
@@ -19,17 +20,19 @@ def wait_for_space():
 
 def main():
 
+	os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (0,0)
+
 	WIDTH, HEIGHT = 200, 200
 	WHITE = (255, 255, 255)
 	SCALING_FACTOR = 3
 
 	STEPS_PER_GENERATION = 200
 	N_GENERATIONS = 1000
-	POPULATION = 25
+	POPULATION = 100
 	MUTATION_RATE = 0.00
 
 	# Statistics
-	percent_surviving_stat = []
+	survival_rate_stat = []
 	genetic_diversity_stat = []
 
 	environment = Environment(WIDTH, HEIGHT, POPULATION, MUTATION_RATE)
@@ -110,16 +113,16 @@ def main():
 				genetic_diversity = environment.calculate_genetic_diversity()
 				genetic_diversity_stat.append(genetic_diversity)
 
-				percent_surviving = environment.enact_selection_pressure()
-				percent_surviving_stat.append(percent_surviving)
-				if percent_surviving == 0:
+				survival_rate = environment.enact_selection_pressure()
+				survival_rate_stat.append(survival_rate)
+				if survival_rate == 0:
 					print('Everyone Died!')
 					updating = False
 					running = False
 					quit()
 				else:
-					environment.get_next_generation_asexually(new_population=NEW_POPULATION)
-				plt.plot(percent_surviving_stat, label='Percent Surviving', color='red')
+					environment.get_next_generation(n_parents=2, new_population=NEW_POPULATION)
+				plt.plot(survival_rate_stat, label='Percent Surviving', color='red')
 				plt.plot(genetic_diversity_stat, label='Genetic Diversity', color='blue')
 				plt.xlabel('Generation')
 				if generation == 0:
@@ -127,7 +130,7 @@ def main():
 				plt.savefig('stats.png')
 
 				
-				print(genetic_diversity)
+				print(f'Genetic Diversity: {round(genetic_diversity, 2)}%, Survival Rate: {round(survival_rate, 2)}%.')
 				### Generation Loop ###
 
 			updating = False

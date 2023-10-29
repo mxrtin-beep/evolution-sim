@@ -31,6 +31,7 @@ class Cell:
 		self.environment = environment
 
 		self.age = 0
+		self.oscillator_delay = 2
 
 
 	### GETTERS ###
@@ -51,13 +52,22 @@ class Cell:
 
 		gene_max = int('ffffffff', 16)
 		color_max = 255
+		divider = int(len(self.genome) / 3)
+		colors = []
+		for i in range(len(self.genome)):
+			colors.append(int(int(self.genome[i], 16)/gene_max*color_max))
 
-		return (
-				int(int(self.genome[0], 16)/gene_max*color_max), 
-				int(int(self.genome[1], 16)/gene_max*color_max),
-				int(int(self.genome[2], 16)/gene_max*color_max),
-			)
+		#red_avg = np.average(colors[:divider])
+		#grn_avg = np.average(colors[divider:divider*2])
+		#blu_avg = np.average(colors[divider*2:])
+		red_avg = colors[0]
+		grn_avg = colors[1]
+		blu_avg = colors[2]
 
+		return (red_avg, grn_avg, blu_avg)
+
+	def get_gene_color(self, gene_max, color_max):
+		return int(int(gene, 16)/gene_max*color_max)
 
 	def age_up(self):
 		self.age += 1
@@ -86,7 +96,7 @@ class Cell:
 		self.brain.activate_sensory_neuron('Age', self.age / 500) # Age
 		self.brain.activate_sensory_neuron('Rnd', random.uniform(0, 1)) # Random input
 		self.brain.activate_sensory_neuron('Blr', self.calculate_left_right_blockage_()) # Left-Right Blockage
-		self.brain.activate_sensory_neuron('Osc', self.age % 2)	# Oscillator
+		self.brain.activate_sensory_neuron('Osc', int(not (self.age % self.oscillator_delay)))	# Oscillator
 		self.brain.activate_sensory_neuron('Bfd', self.calculate_forward_blockage_()) # Blockage forward
 		self.brain.activate_sensory_neuron('Pop', self.calculate_population_density_()) # Population density
 		self.brain.activate_sensory_neuron('LMx', self.x_dir) # Last movement (direction) x
@@ -130,6 +140,11 @@ class Cell:
 				self.brain.update_responsiveness(1)
 			elif decision == 'R-':	# increase responsiveness
 				self.brain.update_responsiveness(-1)
+
+			elif decision == 'O+':	# increase oscillator delay
+				self.oscillator_delay += 1
+			elif decision == 'O-':	# decrease oscillator delay to a min of 2
+				self.oscillator_delay = max(2, self.oscillator_delay - 1)			
 	
 		return decision_list
 
