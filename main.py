@@ -28,9 +28,9 @@ def main():
 
 	STEPS_PER_GENERATION = 200
 	N_GENERATIONS = 1000
-	POPULATION = 100
+	POPULATION = 200
 	MUTATION_RATE = 0.005
-	N_PARENTS = 1
+	N_PARENTS = 10
 
 	# Statistics
 	survival_rate_stat = []
@@ -90,7 +90,7 @@ def main():
 						cell.think()
 
 						# Execute decision
-						decision_list = cell.execute_decision()
+						decision_list = cell.execute_decision(multiple_actions=True)
 						
 						# Grow
 						cell.age_up()
@@ -116,8 +116,9 @@ def main():
 
 				survival_rate = environment.enact_selection_pressure()
 
-				if survival_rate > 95:
-					environment.get_cells()[0].draw_brain()
+				#if survival_rate > 10:
+				#	environment.get_cells()[0].draw_brain()
+				
 				survival_rate_stat.append(survival_rate)
 				if survival_rate == 0:
 					print('Everyone Died!')
@@ -126,14 +127,14 @@ def main():
 					quit()
 				else:
 					environment.get_next_generation(n_parents=N_PARENTS, new_population=NEW_POPULATION)
-
-				plt.figure()
+				
 				plt.plot(survival_rate_stat, label='Percent Surviving', color='red')
 				plt.plot(genetic_diversity_stat, label='Genetic Diversity', color='blue')
 				plt.xlabel('Generation')
 				if generation == 0:
 					plt.legend()
 				plt.savefig('stats.png')
+				
 
 				
 				print(f'Genetic Diversity: {round(genetic_diversity, 2)}%, Survival Rate: {round(survival_rate, 2)}%.')

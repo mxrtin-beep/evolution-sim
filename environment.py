@@ -4,8 +4,8 @@ import numpy as np
 
 from cell import Cell
 
-n_genes = 10
-n_inner_neurons = 2
+n_genes = 20
+n_inner_neurons = 3
 
 class Environment:
 
@@ -168,10 +168,12 @@ class Environment:
 		for i in range(len(self.cells)):
 			cell = self.cells[i]
 
-			#death_condition = (cell.get_x() > 3 and cell.get_y() > 3 and cell.get_x() < 197 and cell.get_y() < 197)
-			#death_condition = False
-			death_condition = cell.get_x() > 100
+			death_condition_1 = (cell.get_x() > 3 and cell.get_y() > 3 and cell.get_x() < 197 and cell.get_y() < 197)
+			death_condition_2 = cell.calculate_population_density_() < 0.05
+			#death_condition = cell.get_y() > (2 * cell.get_x() + 75) or cell.get_y() < (2 * cell.get_x() + 50)
+			#death_condition = cell.get_x() > 100
 			# Kill all cells on the right side of the board
+			death_condition = (not death_condition_1) or death_condition_2
 			if not death_condition:
 				new_cell_arr.append(cell)
 			else:

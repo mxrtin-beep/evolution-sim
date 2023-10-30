@@ -110,9 +110,13 @@ class Cell:
 	def think(self):
 		self.brain.forward_pass()
 
-	def execute_decision(self):
+	def execute_decision(self, multiple_actions=True):
 
-		decision_list = self.brain.get_decisions()
+		if multiple_actions:
+			decision_list = self.brain.get_decisions()
+		else:
+			decision_list = [self.brain.get_primary_decision()]
+		
 		dirs = [-1, 0, 1]
 
 		for decision in decision_list:
@@ -144,7 +148,8 @@ class Cell:
 			elif decision == 'O+':	# increase oscillator delay
 				self.oscillator_delay += 1
 			elif decision == 'O-':	# decrease oscillator delay to a min of 2
-				self.oscillator_delay = max(2, self.oscillator_delay - 1)			
+				self.oscillator_delay = max(2, self.oscillator_delay - 1)
+
 	
 		return decision_list
 
@@ -192,6 +197,7 @@ class Cell:
 			return 0
 		return 1
 
+	# 0 to 1
 	def calculate_population_density_(self):
 
 		total_nearby_population = -1 # don't count self
@@ -204,7 +210,7 @@ class Cell:
 				if info > 0:
 					total_nearby_population += 1
 
-		return total_nearby_population / (2 * radius)**2
+		return total_nearby_population / ((2 * radius)**2 - 1)
 
 	def calculate_genetic_similarity_of_forward_neighbor(self):
 

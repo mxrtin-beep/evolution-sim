@@ -189,10 +189,24 @@ class Brain:
 			action_neuron_activation = self.action_neurons[key].get_activation()
 			action_neuron_threshold = self.action_neurons[key].get_threshold()
 
-			if action_neuron_activation > action_neuron_threshold:
+			if action_neuron_activation >= action_neuron_threshold:
 				action_list.append(key)
 
 		return action_list
+
+	def get_primary_decision(self):
+
+		activations = {} # activation: decision
+
+		for key in self.action_neurons.keys():
+			action_neuron_activation = self.action_neurons[key].get_activation()
+			activations[action_neuron_activation] = key
+
+		max_activation = np.max(list(activations.keys()))
+		action = activations[max_activation]
+		if max_activation > self.action_neurons[action].get_threshold():
+			return action
+
 
 	def update_responsiveness(self, change):
 
@@ -277,6 +291,7 @@ class Brain:
 		nx.draw_networkx_edge_labels(G, pos, edge_labels, font_size=9, verticalalignment='bottom')
 		nx.draw(G, pos, node_color=color_map, node_size=350, with_labels=True)
 		plt.savefig('brain.png')
+		plt.figure()
 		#plt.show()
 
 
