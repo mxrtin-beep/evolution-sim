@@ -3,6 +3,9 @@
 import random
 import numpy as np
 import math
+import networkx as nx
+import matplotlib.pyplot as plt
+
 
 def sigmoid(x):
 	return 1 / (1 + math.exp(-x))
@@ -95,8 +98,8 @@ class Brain:
 			'Osc': Neuron(),	# oscillator
 			'Bfd': Neuron(),	# blockage forward
 			'Pop': Neuron(),	# population density in immediate area
-			'LMy': Neuron(),	# last movement y
 			'LMx': Neuron(), 	# last movement x
+			'LMy': Neuron(),	# last movement y
 			'Gen': Neuron(), 	# genetic similarity of fwd neighbor
 			'Lx': Neuron(),		# x location
 			'Ly': Neuron(), 	# y location
@@ -225,6 +228,55 @@ class Brain:
 		return s
 
 
+	def draw(self):
 
+
+		G = nx.DiGraph()
+
+		sensory_x, sensory_y = 0, 0
+		inner_x, inner_y = 1000, 0
+		action_x, action_y = 2000, 0
+		y_offset = 250
+		
+		color_map = []
+		sensory_color = 'yellow'
+		inner_color = 'gray'
+		action_color = 'cyan'
+
+		# Add sensory neuron
+		for key in self.sensory_neurons.keys():
+			G.add_node(key, pos=(sensory_x, sensory_y))
+			sensory_y += y_offset
+			color_map.append(sensory_color)
+		
+		for key in self.inner_neurons.keys():
+			G.add_node(key, pos=(inner_x, inner_y))
+			color_map.append(inner_color)
+
+			for in_key in self.inner_neurons[key].get_inputs().keys():
+				G.add_edges_from([(in_key, key)], weight=round(self.inner_neurons[key].get_inputs()[in_key], 2))
+			inner_y += y_offset*3
+
+		for key in self.action_neurons.keys():
+			G.add_node(key, pos=(action_x, action_y))
+			color_map.append(action_color)
+
+			for in_key in self.action_neurons[key].get_inputs().keys():
+				G.add_edges_from([(in_key, key)], weight=round(self.action_neurons[key].get_inputs()[in_key], 2))
+			action_y += y_offset
+
+
+
+		elarge = [(u, v) for (u, v, d) in G.edges(data=True)]
+
+		pos = nx.get_node_attributes(G, 'pos')
+		edge_labels = nx.get_edge_attributes(G, "weight")
+
+		plt.figure(3,figsize=(12,12)) 
+		nx.draw_networkx_edges(G, pos, edgelist=elarge, width=1)	
+		nx.draw_networkx_edge_labels(G, pos, edge_labels, font_size=9, verticalalignment='bottom')
+		nx.draw(G, pos, node_color=color_map, node_size=350, with_labels=True)
+		plt.savefig('brain.png')
+		#plt.show()
 
 

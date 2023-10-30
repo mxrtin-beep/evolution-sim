@@ -275,7 +275,7 @@ class Cell:
 
 		if mutation_rate == 0:
 			return self.genome
-		
+
 		nucleotides = '0123456789abcdef'
 		genome_mut = []
 
@@ -309,6 +309,8 @@ class Cell:
 		s = f'Cell {self.id_number}\n Position {self.x_pos},{self.y_pos}\n Genome: {self.genome}\n Brain: {self.brain}\n'
 		return s
 
+	def draw_brain(self):
+		self.brain.draw()
 
 
 	

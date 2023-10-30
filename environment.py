@@ -168,9 +168,9 @@ class Environment:
 		for i in range(len(self.cells)):
 			cell = self.cells[i]
 
-			death_condition = (cell.get_x() > 3 and cell.get_y() > 3 and cell.get_x() < 197 and cell.get_y() < 197)
+			#death_condition = (cell.get_x() > 3 and cell.get_y() > 3 and cell.get_x() < 197 and cell.get_y() < 197)
 			#death_condition = False
-			#death_condition = cell.get_x() > 100
+			death_condition = cell.get_x() > 100
 			# Kill all cells on the right side of the board
 			if not death_condition:
 				new_cell_arr.append(cell)
