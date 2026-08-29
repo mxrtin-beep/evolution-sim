@@ -1,13 +1,11 @@
 # 🧬 Evolution Sim
 
-A from-scratch artificial life simulator where thousands of cells, each controlled by its own tiny neural network, live, move, and reproduce on a 2D grid. Every cell's brain is encoded directly in a genome of hexadecimal genes — no backprop, no training labels. Behavior emerges purely from **selection pressure** and **random mutation** across generations, à la [Bibites](https://leocaillon.itch.io/the-bibites) or David Miller's "biosim4".
+A from-scratch artificial life simulator where thousands of cells, each controlled by its own tiny neural network, live, move, and reproduce on a 2D grid. Every cell's brain is encoded directly in a genome of hexadecimal genes — no backprop, no training labels. Behavior emerges purely from **selection pressure** and **random mutation** across generations, directly inspired by [David Miller's "I programmed some creatures. They evolved."](https://www.youtube.com/watch?v=N3tRFayqVtk)
 
-🌐 **[View it live](https://mxrtin-beep.github.io/evo-sim.html)**
+🌐 **[Website](https://mxrtin-beep.github.io/evo-sim.html)**
 
 <p align="center">
-  <img src="test.png" alt="Population of cells on the grid" width="45%">
-  &nbsp;
-  <img src="brain.png" alt="A cell's evolved neural network" width="45%">
+  <img src="brain.png" alt="A cell's evolved neural network" width="60%">
 </p>
 
 ## How it works
