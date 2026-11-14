@@ -136,6 +136,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._frame(q.get("pher") == "1")
             if u.path == "/api/stats":
                 return self._stats(int(q.get("since", 0)))
+            if u.path == "/api/terrain":
+                with RUNNER.lock:
+                    sim = RUNNER.sim
+                    return self._json({"data": b64_terrain(sim.terrain)} if sim else {"error": "no run"})
             if u.path == "/api/art":
                 with RUNNER.lock:
                     return self._json(RUNNER.sim.art() if RUNNER.sim else {"error": "no run"})

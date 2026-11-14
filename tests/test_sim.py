@@ -106,6 +106,26 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(float(sim.pher.max()), 0.0)
         self.assertIn("pher", sim.frame(pher=True))
 
+    def test_spawn_only_on_land_connected_to_safe_zone(self):
+        t = world.build_terrain("islands", "safe_corner", 128, 128)
+        reach = world.reachable_region(t)
+        self.assertLess(reach.sum(), (t != world.WALL).sum())      # some land is cut off
+        self.assertTrue(reach[t == world.SAFE].all())
+        sim = Simulation(normalize_config({"spawn": "left", "population": 200}), t)
+        self.assertTrue(reach[sim.spawn_cells[:, 0], sim.spawn_cells[:, 1]].all())
+
+    def test_moving_hazards_and_alarm_pheromone(self):
+        t = world.build_terrain("square", "hazard_spots", 48, 48)
+        rules = defaults()
+        rules["hazard"].update(enabled=True, radius=1, when="step")
+        sim = Simulation(normalize_config({"seed": 3, "steps": 10, "hazard_shuffle": True, "death_pher": 2, "rules": rules}), t)
+        n_haz, v0, first = int((sim.terrain == world.HAZARD).sum()), sim.tver, sim.terrain.copy()
+        while sim.gen < 2:
+            sim.advance()
+        self.assertGreater(sim.tver, v0)
+        self.assertEqual(int((sim.terrain == world.HAZARD).sum()), n_haz)
+        self.assertFalse((sim.terrain == first).all())
+
     def test_art_payload(self):
         t = world.build_terrain("square", "none", 32, 32)
         sim = run({"seed": 2, "population": 30, "steps": 5}, t, 1)

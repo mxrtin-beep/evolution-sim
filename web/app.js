@@ -95,7 +95,10 @@ function buildSetup() {
     select('Map shape', map.shape, SCHEMA.shapes, v => { map.shape = v; sizeChange(); }),
     select('Zone preset', map.zone, SCHEMA.zones, v => { map.zone = v; sizeChange(); }, 'Safe (green) and hazard (red) pixels used by the mortality rules.'),
     slider('w', 'Map width (px)', 32, 256, 8, '', map, sizeChange), slider('h', 'Map height (px)', 32, 256, 8, '', map, sizeChange),
-    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'), sl('pher_decay'))));
+    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'), sl('pher_decay'), sl('death_pher'), sl('hazard_sight'), sl('safe_sight'),
+    h('div', { class: 'field' }, h('label', {}, 'Moving hazards'),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!cfg.hazard_shuffle, onchange: e => { cfg.hazard_shuffle = e.target.checked; persist(); } }), 'Slide the hazard pattern to a new spot every generation'),
+      h('div', { class: 'hint' }, 'Stops cells memorising where the hazards are from their X/Y position.')))));
 
   // rules
   const rl = h('div', {});
@@ -117,7 +120,7 @@ function buildSetup() {
 function applyScenario(s, rebuild) {
   cfg.rules = Object.fromEntries(SCHEMA.rules.map(r => [r.id, { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(s.rules[r.id] || {}) }]));
   for (const sd of SCHEMA.settings) cfg[sd.key] = (s.settings && s.settings[sd.key]) ?? sd.default;
-  cfg.spawn = s.spawn || 'anywhere'; map.shape = s.shape; map.zone = s.zone; cfg.scenario = s.id;
+  cfg.spawn = s.spawn || 'anywhere'; map.shape = s.shape; map.zone = s.zone; cfg.scenario = s.id; cfg.hazard_shuffle = !!s.shuffle;
   [map.w, map.h] = s.size || [128, 128];
   persist();
   if (rebuild) { buildSetup(); loadMap(); }
@@ -177,7 +180,7 @@ function warn() {
 let brainView, deathChart, divChart;
 let polling = false, stats = [], world = null, spotCanvas = null, terrainCanvas = null, S = 5;
 let selected = null, brainGen = 0, brainGens = 1, brainLive = true, brainMode = 'pop', brainCache = {}, lastFrame = null, brainPlay = null;
-let tickBusy = false, statsBusy = false, artShown = false;
+let tickBusy = false, statsBusy = false, artShown = false, lastTver = -1;
 
 function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
@@ -192,7 +195,7 @@ async function startRun() {
 }
 function enterRun(resumed) {
   document.body.dataset.view = 'run'; artShown = false;
-  stats = []; brainCache = {}; selected = null; brainGen = 0; brainLive = true; brainMode = 'pop'; lastFrame = null;
+  lastTver = -1; stats = []; brainCache = {}; selected = null; brainGen = 0; brainLive = true; brainMode = 'pop'; lastFrame = null;
   setBrainMode('pop');
   S = Math.max(2, Math.ceil(720 / Math.max(map.w, map.h)));
   world = $('#world'); world.width = map.w * S; world.height = map.h * S;
@@ -258,6 +261,11 @@ async function loop() {
     try {
       const f = await api('frame' + ($('#t-pher').checked ? '?pher=1' : ''));
       if (!f.active) break;
+      if (f.tver !== lastTver) {
+        lastTver = f.tver;
+        const tr = await api('terrain');
+        if (tr.data) { map.terrain = Uint8Array.from(atob(tr.data), c => c.charCodeAt(0)); drawTerrain(); }
+      }
       lastFrame = f; updateChips(f); renderWorld();
       if (f.n_stats > stats.length) await pullStats();
       await updateBrain(f);

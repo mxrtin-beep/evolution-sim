@@ -43,6 +43,12 @@ SCENARIOS = [
      "desc": "Two chambers joined by a narrow doorway. Only the right chamber is safe, so cells born on the left must find the door.",
      "shape": "chambers", "zone": "safe_right", "spawn": "anywhere",
      "rules": _rules(safe={"radius": 0})},
+    {"id": "alarm", "name": "Alarm signals",
+     "desc": "Hazard blobs move every generation and cells only see them from 3 px away. Cells must cross the map, "
+             "and anyone who dies leaves an alarm pheromone. Experimental: can the rest learn to smell danger? It may take hundreds of generations.",
+     "shape": "square", "zone": "hazard_spots", "spawn": "anywhere", "size": [96, 96], "shuffle": True,
+     "settings": {"population": 300, "n_genes": 12, "n_inner": 3, "pher_decay": 0.95, "death_pher": 3, "hazard_sight": 3},
+     "rules": _rules(hazard={"radius": 1, "when": "step"}, displacement={"min": 30, "max": 0})},
     {"id": "marathon", "name": "Marathon",
      "desc": "Stay off the walls, travel at least 80 steps and end up 25 px from where you started.",
      "shape": "ring", "zone": "none", "spawn": "edges",

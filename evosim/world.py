@@ -239,6 +239,37 @@ SPAWNS = {
 }
 
 
+def reachable_region(terrain):
+    """Open cells (4-connected, the way cells actually move) that a cell could walk to a safe pixel from.
+
+    If the map has safe pixels, that is every landmass containing one; otherwise the largest landmass.
+    """
+    from collections import deque
+    w, h = terrain.shape
+    open_ = (terrain != WALL).tolist()
+    label = [[0] * h for _ in range(w)]
+    sizes = [0]
+    for sx in range(w):
+        for sy in range(h):
+            if open_[sx][sy] and not label[sx][sy]:
+                n = len(sizes)
+                label[sx][sy] = n
+                size, q = 0, deque([(sx, sy)])
+                while q:
+                    x, y = q.popleft()
+                    size += 1
+                    for a, b in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                        if 0 <= a < w and 0 <= b < h and open_[a][b] and not label[a][b]:
+                            label[a][b] = n
+                            q.append((a, b))
+                sizes.append(size)
+    lab = np.array(label)
+    keep = set(lab[terrain == SAFE].tolist()) - {0}
+    if not keep:
+        keep = {int(np.argmax(sizes))}
+    return np.isin(lab, list(keep))
+
+
 def spawn_mask(kind, terrain):
     w, h = terrain.shape
     x, y = _coords(w, h)
@@ -252,7 +283,8 @@ def spawn_mask(kind, terrain):
         m = (np.abs(x) > 0.75) | (np.abs(y) > 0.75)
     else:
         m = np.ones((w, h), bool)
-    ok = m & (terrain != WALL) & (terrain != HAZARD)
-    if ok.sum() < 20:  # preset collides with the map; fall back to anywhere open
-        ok = (terrain != WALL) & (terrain != HAZARD)
+    land = reachable_region(terrain) & (terrain != HAZARD)
+    ok = m & land
+    if ok.sum() < 20:  # preset collides with the map; fall back to anywhere reachable
+        ok = land
     return ok

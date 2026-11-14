@@ -17,12 +17,15 @@ SETTINGS = [
     ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 2, "Hidden neurons available to the brain."),
     ("mutation_rate", "Mutation rate (per hex digit)", "Genetics", 0, 0.1, 0.0005, 0.005, "Chance that each of a gene's 8 hex digits is re-rolled in every child."),
     ("pher_decay", "Pheromone persistence", "World", 0.5, 0.99, 0.01, 0.9, "Share of pheromone left after each step. Higher = longer-lasting trails."),
+    ("death_pher", "Alarm pheromone on death", "World", 0, 5, 0.5, 0.0, "Cells that die mid-generation release this much pheromone where they fell."),
+    ("hazard_sight", "Hazard sense range (px)", "World", 1, 64, 1, 32.0, "The Hazard distance sense only sees this far. Short range = hazards are nearly invisible."),
+    ("safe_sight", "Safe-zone sense range (px)", "World", 1, 64, 1, 32.0, "How far the Safe distance sense can see."),
 ]
 
 DEFAULTS = {s[0]: s[6] for s in SETTINGS}
 DEFAULTS.update({
     "mode": "asexual", "partners": 1, "crossover": "gene", "offspring": "equal",
-    "spawn": "anywhere", "seed": None, "rules": {},
+    "spawn": "anywhere", "seed": None, "rules": {}, "hazard_shuffle": False,
 })
 LIMITS = {s[0]: (s[3], s[4]) for s in SETTINGS}
 
@@ -56,6 +59,7 @@ def normalize_config(raw):
         except (TypeError, ValueError):
             pass
     cfg["rules"] = r.get("rules") or {}
+    cfg["hazard_shuffle"] = bool(r.get("hazard_shuffle", False))
     return cfg
 
 
@@ -88,8 +92,16 @@ class Simulation:
 
         self.wall = wall
         self.pher = np.zeros((self.w, self.h), np.float32)
-        self.spawn_cells = np.argwhere(world.spawn_mask(cfg["spawn"], self.terrain))
+        self.shuffle = bool(cfg["hazard_shuffle"]) and self.has_hazard
+        self.tver = 0  # bumped whenever the hazard layout changes
+        if self.shuffle:
+            self.hazard0 = self.terrain == world.HAZARD
+            self.terrain = np.where(self.hazard0, world.OPEN, self.terrain).astype(np.uint8)
+        self.spawn_ok = world.spawn_mask(cfg["spawn"], self.terrain)
+        self.spawn_cells = np.argwhere(self.spawn_ok)
         self.n = int(min(cfg["population"], len(self.spawn_cells)))
+        if self.shuffle:
+            self._shuffle_hazards()
 
         self.occp = np.zeros((self.w + 2 * PAD, self.h + 2 * PAD), np.int32)
         self.occp[...] = -1
@@ -108,7 +120,21 @@ class Simulation:
         self._begin_generation()
 
     # ------------------------------------------------------------- generation
+    def _shuffle_hazards(self):
+        """Slide the whole hazard pattern to a new random spot (wrapping round the map)."""
+        shift = (int(self.rng.integers(0, self.w)), int(self.rng.integers(0, self.h)))
+        mask = np.roll(self.hazard0, shift, axis=(0, 1)) & ~self.wall
+        self.terrain = np.where(self.wall, world.WALL, np.where(mask, world.HAZARD, np.where(self.terrain == world.SAFE, world.SAFE, world.OPEN))).astype(np.uint8)
+        self.d_hazard = world.distance_to(mask)
+        self.tver += 1
+        ok = self.spawn_ok & (self.d_hazard > 2.5)
+        if ok.sum() < self.n:  # too crowded with hazards: allow any reachable spot
+            ok = self.spawn_ok & ~mask
+        self.spawn_cells = np.argwhere(ok)
+
     def _begin_generation(self):
+        if self.shuffle and self.gen > 0:
+            self._shuffle_hazards()
         n, G = self.n, self.G
         self.colors = gn.genome_colors(G)
         W, P = gn.decode(G, self.n_inner)
@@ -204,8 +230,8 @@ class Simulation:
         S[:, 10] = y / max(self.h - 1, 1)
         S[:, 11] = np.clip(self.d_wall[x, y] / (min(self.w, self.h) / 2), 0, 1)
         S[:, 12] = 1
-        S[:, 13] = np.clip(self.d_hazard[x, y] / 32.0, 0, 1)
-        S[:, 14] = np.clip(self.d_safe[x, y] / 32.0, 0, 1) if self.has_safe else 0
+        S[:, 13] = np.clip(self.d_hazard[x, y] / self.cfg["hazard_sight"], 0, 1)
+        S[:, 14] = np.clip(self.d_safe[x, y] / self.cfg["safe_sight"], 0, 1) if self.has_safe else 0
         ring = np.where(hits, OFF_RING[None, :], PAD + 1).min(axis=1)
         S[:, 15] = np.where(ring > PAD, 1.0, (ring - 1) / PAD)
         S[:, 16] = np.clip(self.traveled[ia] / self.steps, 0, 1)
@@ -233,6 +259,8 @@ class Simulation:
         if len(idx) == 0:
             return
         self.alive[idx] = False
+        if self.cfg["death_pher"] > 0:  # alarm signal where the cell fell
+            np.add.at(self.pher, (self.x[idx], self.y[idx]), np.float32(self.cfg["death_pher"]))
         self.cause[idx] = rule_index
         self.occp[self.x[idx] + PAD, self.y[idx] + PAD] = 0
         rid = RULES[rule_index]["id"]
@@ -365,7 +393,7 @@ class Simulation:
     def frame(self, pher=False):
         ia = np.flatnonzero(self.alive)
         out = {
-            "gen": self.gen, "step": self.age, "steps": self.steps, "alive": int(len(ia)), "n": self.n,
+            "gen": self.gen, "step": self.age, "steps": self.steps, "alive": int(len(ia)), "n": self.n, "tver": self.tver,
             "x": self.x[ia].tolist(), "y": self.y[ia].tolist(), "c": self.colors[ia].tolist(),
         }
         if pher:
