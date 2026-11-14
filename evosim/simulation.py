@@ -91,6 +91,11 @@ class Simulation:
         self.d_safe = world.distance_to(self.terrain == world.SAFE)
 
         self.wall = wall
+        self.hand = None            # raw hand mask from the webcam / mouse, (w, h) bool
+        self.hand_zone = None       # hand mask grown by the rule's reach (None while no hand is visible)
+        self.handp = np.zeros((self.w + 2 * PAD, self.h + 2 * PAD), np.uint8)
+        self.transition = {}
+        self.transition_id = 0
         self.pher = np.zeros((self.w, self.h), np.float32)
         self.shuffle = bool(cfg["hazard_shuffle"]) and self.has_hazard
         self.tver = 0  # bumped whenever the hazard layout changes
@@ -236,7 +241,34 @@ class Simulation:
         S[:, 15] = np.where(ring > PAD, 1.0, (ring - 1) / PAD)
         S[:, 16] = np.clip(self.traveled[ia] / self.steps, 0, 1)
         S[:, 17] = np.clip(self.pher[x, y] / 2.0, 0, 1)
+        S[:, 18] = self._hand_sense(x, y, hits) if self.hand_zone is not None else 0
         return S
+
+    def _hand_sense(self, x, y, _unused):
+        near = self.handp[x[:, None] + PAD + OFF_X[None, :], y[:, None] + PAD + OFF_Y[None, :]] > 0
+        ring = np.where(near, OFF_RING[None, :], PAD + 1).min(axis=1)
+        ring = np.where(self.handp[x + PAD, y + PAD] > 0, 0, ring)
+        return np.where(ring > PAD, 0.0, (PAD + 1 - ring) / (PAD + 1))
+
+    def set_hands(self, mask):
+        """Update the hand mask (bool (w, h)); an empty mask means no hand is visible."""
+        mask = np.asarray(mask, bool)
+        if mask.shape != (self.w, self.h) or not mask.any():
+            self.hand, self.hand_zone = None, None
+            self.handp[:] = 0
+            return
+        self.hand = mask
+        self.handp[PAD:-PAD, PAD:-PAD] = mask
+        reach = 0
+        for rid, c in self.rules.active:
+            if rid == "hands":
+                reach = int(c["radius"])
+        zone = mask.copy()
+        for _ in range(reach):
+            q = np.pad(zone, 1)
+            zone = (q[1:-1, 1:-1] | q[:-2, 1:-1] | q[2:, 1:-1] | q[1:-1, :-2] | q[1:-1, 2:] |
+                    q[:-2, :-2] | q[:-2, 2:] | q[2:, :-2] | q[2:, 2:])
+        self.hand_zone = zone
 
     def _think(self, ia, sens):
         inner_prev = self.inner[ia]
@@ -364,9 +396,17 @@ class Simulation:
             self.status, self.message = "finished", f"Finished {self.gen + 1} generations."
             return s
 
+        old = {"x": self.x[survivors].tolist(), "y": self.y[survivors].tolist(), "c": self.colors[survivors].tolist()}
+        old_gen = self.gen
         self.G = self._breed(self.G[survivors])
         self.gen += 1
         self._begin_generation()
+        self.transition = {
+            "gen": old_gen, "survivors": old, "dead": s["deaths"],
+            "children": {"x": self.x.tolist(), "y": self.y.tolist(), "c": self.colors.tolist(),
+                         "p": self._pick.tolist()},   # indices into `survivors`
+        }
+        self.transition_id += 1
         return s
 
     def _breed(self, surv):
@@ -377,6 +417,7 @@ class Simulation:
         if cfg["offspring"] == "equal":
             first = rng.permutation(first)
         pick = np.concatenate([first[:, None], rng.integers(0, s, (self.n, k - 1))], axis=1)
+        self._pick = pick
         child = gn.crossover(rng, surv[pick], cfg["crossover"])
         return gn.mutate(rng, child, cfg["mutation_rate"])
 
@@ -394,6 +435,7 @@ class Simulation:
         ia = np.flatnonzero(self.alive)
         out = {
             "gen": self.gen, "step": self.age, "steps": self.steps, "alive": int(len(ia)), "n": self.n, "tver": self.tver,
+            "trid": self.transition_id, "hands": self.hand is not None,
             "x": self.x[ia].tolist(), "y": self.y[ia].tolist(), "c": self.colors[ia].tolist(),
         }
         if pher:

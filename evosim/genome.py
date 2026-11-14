@@ -29,6 +29,7 @@ SENSORS = [
     ("Nn", "Nearest cell", "Distance to the closest other cell (1 = nobody within 6 px)."),
     ("Trv", "Distance walked", "Total distance travelled so far, relative to the generation length."),
     ("Sml", "Smell", "Pheromone concentration where the cell stands. It fades and spreads, so it works as a trail."),
+    ("Hnd", "Hand nearby", "Your hand, seen through the webcam or mouse: 1 = under it, fading to 0 about 6 px away."),
 ]
 
 ACTIONS = [

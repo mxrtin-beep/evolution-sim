@@ -40,6 +40,14 @@ RULES = [
      "desc": "Straight-line distance between where the cell spawned and where it ends up.",
      "params": [_num("min", "Must end at least (px) from spawn", 0, 300, 1, 10),
                 _num("max", "Must stay within (px) of spawn (0 = no limit)", 0, 300, 1, 0)]},
+    {"id": "hands", "name": "Hands (webcam / mouse)", "color": "#ff6a00",
+     "desc": "Your hands become part of the world. Cells either die when a hand covers them, or die when no hand "
+             "covers them at the end of the generation. Switch on the webcam or mouse in the run screen; "
+             "with no hand visible this rule pauses.",
+     "params": [{"key": "mode", "label": "Cells die...", "type": "select",
+                 "options": [["inside", "while under a hand"], ["outside", "unless under a hand (at the end)"]],
+                 "default": "inside"},
+                _num("radius", "Hand reach R (px)", 0, 12, 1, 1), dict(WHEN, default="step")]},
     {"id": "random", "name": "Random death", "color": "#ff2fa0",
      "desc": "Pure bad luck: every cell has the same chance of dying, regardless of its brain.",
      "params": [_num("chance", "Chance of dying (%)", 0, 100, 0.5, 10), dict(WHEN, default="end")]},
@@ -80,6 +88,8 @@ class RuleSet:
                 hit = ctx.d_hazard[x, y] <= float(c["radius"])
             elif rid == "walls" and c["when"] == "step":
                 hit = ctx.d_wall[x, y] <= float(c["radius"])
+            elif rid == "hands" and c["mode"] == "inside" and c["when"] == "step" and ctx.hand_zone is not None:
+                hit = ctx.hand_zone[x, y]
             elif rid == "random" and c["when"] == "step":
                 p = float(c["chance"]) / 100.0
                 p_step = 1 - (1 - p) ** (1.0 / self.steps)
@@ -111,6 +121,11 @@ class RuleSet:
                 hit = d < float(c["min"])
                 if float(c["max"]) > 0:
                     hit |= d > float(c["max"])
+            elif rid == "hands" and ctx.hand_zone is not None:
+                if c["mode"] == "outside":
+                    hit = ~ctx.hand_zone[x, y]
+                elif c["when"] == "end":
+                    hit = ctx.hand_zone[x, y]
             elif rid == "random" and c["when"] == "end":
                 hit = rng.random(len(ia)) < float(c["chance"]) / 100.0
             if hit is not None and hit.any():

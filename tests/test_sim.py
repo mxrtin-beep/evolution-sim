@@ -126,6 +126,41 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(int((sim.terrain == world.HAZARD).sum()), n_haz)
         self.assertFalse((sim.terrain == first).all())
 
+    def test_hands_rule_and_sense(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        rules = defaults()
+        rules["hands"].update(enabled=True, mode="inside", radius=1, when="step")
+        sim = Simulation(normalize_config({"seed": 3, "steps": 10, "population": 60, "rules": rules}), t)
+        ia = np.flatnonzero(sim.alive)
+        self.assertTrue((sim._sense(ia)[:, gn.SENSOR_IDX["Hnd"]] == 0).all())   # no hand yet
+        mask = np.zeros((40, 40), bool)
+        mask[:20, :] = True                                                    # left half is a hand
+        sim.set_hands(mask)
+        on = sim.x[ia] < 20
+        s = sim._sense(ia)[:, gn.SENSOR_IDX["Hnd"]]
+        self.assertTrue((s[on] == 1).all())
+        sim.advance()
+        self.assertFalse((sim.alive & (sim.x < 19)).any())                       # cells under the hand died
+        sim.set_hands(np.zeros((40, 40), bool))
+        self.assertIsNone(sim.hand_zone)
+
+    def test_outside_hand_rule_pauses_without_hand(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        rules = defaults()
+        rules["hands"].update(enabled=True, mode="outside", radius=0)
+        sim = run({"seed": 3, "steps": 5, "population": 50, "rules": rules}, t, 1)
+        self.assertEqual(sim.stats[0]["survivors"], 50)
+
+    def test_transition_payload(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        sim = run({"seed": 2, "steps": 6, "population": 40, "mode": "sexual", "partners": 2,
+                   "rules": {"random": {"enabled": True, "chance": 50}}}, t, 1)
+        tr = sim.transition
+        self.assertEqual(len(tr["children"]["x"]), 40)
+        self.assertEqual(len(tr["survivors"]["x"]), sim.stats[0]["survivors"])
+        self.assertEqual(len(tr["children"]["p"][0]), 3)
+        self.assertLess(max(max(p) for p in tr["children"]["p"]), len(tr["survivors"]["x"]))
+
     def test_art_payload(self):
         t = world.build_terrain("square", "none", 32, 32)
         sim = run({"seed": 2, "population": 30, "steps": 5}, t, 1)

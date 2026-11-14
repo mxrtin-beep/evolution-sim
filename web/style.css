@@ -103,3 +103,10 @@ input[type=checkbox]{accent-color:var(--ink);width:15px;height:15px}
   #brain{height:620px}
 }
 .modal-box{display:flex;flex-direction:column;align-items:center;gap:12px;min-height:0;flex:1;max-width:100%}
+
+.tog.on{background:var(--ink);color:var(--paper)}
+.hands-row{margin-bottom:8px}
+.hands-row b{font-size:13px}
+#hand-status.alert{color:var(--ink);background:var(--yellow);padding:1px 6px;font-weight:700}
+.trans-note{margin-bottom:8px;padding:5px 10px;border:2px solid var(--ink);background:var(--paper);font-weight:700}
+#cam{position:absolute;right:8px;bottom:8px;width:150px;border:2px solid var(--ink);transform:scaleX(-1);background:#000}

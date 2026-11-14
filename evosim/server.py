@@ -20,6 +20,7 @@ from .simulation import SETTINGS, Simulation, normalize_config
 
 WEB = Path(__file__).resolve().parent.parent / "web"
 MAX_SPEED = 2000  # slider value meaning "as fast as possible"
+TRANSITION_SECONDS = 3.6  # how long the changeover animation holds the simulation
 
 
 class Runner:
@@ -32,6 +33,8 @@ class Runner:
         self.speed = 60.0
         self.generation = 0  # bumped on every (re)start so old threads exit
         self.terrain = None
+        self.transition = False   # pause for the generation changeover animation
+        self.hold_until = 0.0
 
     def start(self, cfg, terrain):
         with self.lock:
@@ -53,9 +56,9 @@ class Runner:
                 if gen_id != self.generation or self.sim is None:
                     return
                 sim = self.sim
-                idle = self.paused or sim.status in ("extinct", "finished")
-                if not idle:
-                    sim.advance()
+                idle = self.paused or sim.status in ("extinct", "finished") or time.time() < self.hold_until
+                if not idle and sim.advance() and self.transition and sim.status == "running":
+                    self.hold_until = time.time() + TRANSITION_SECONDS
                 speed = self.speed
             if idle:
                 time.sleep(0.05)
@@ -106,6 +109,10 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         return json.loads(self.rfile.read(n) or b"{}") if n else {}
 
+    def do_HEAD(self):
+        self._head = True
+        self.do_GET()
+
     def _static(self, path):
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         f = (WEB / rel).resolve()
@@ -114,11 +121,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         data = f.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+        ctype = {".mjs": "text/javascript", ".wasm": "application/wasm"}.get(f.suffix) or mimetypes.guess_type(f.name)[0]
+        self.send_header("Content-Type", ctype or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
-        self.wfile.write(data)
+        if not getattr(self, "_head", False):
+            self.wfile.write(data)
 
     # ---- routes
     def do_GET(self):
@@ -140,6 +149,9 @@ class Handler(BaseHTTPRequestHandler):
                 with RUNNER.lock:
                     sim = RUNNER.sim
                     return self._json({"data": b64_terrain(sim.terrain)} if sim else {"error": "no run"})
+            if u.path == "/api/transition":
+                with RUNNER.lock:
+                    return self._json(RUNNER.sim.transition if RUNNER.sim else {})
             if u.path == "/api/art":
                 with RUNNER.lock:
                     return self._json(RUNNER.sim.art() if RUNNER.sim else {"error": "no run"})
@@ -159,6 +171,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self._start(body)
             if u.path == "/api/control":
                 return self._control(body)
+            if u.path == "/api/hands":
+                with RUNNER.lock:
+                    sim = RUNNER.sim
+                    if sim is not None:
+                        raw = base64.b64decode(body.get("data") or "")
+                        ok = int(body.get("w", 0)) == sim.w and int(body.get("h", 0)) == sim.h and len(raw) == sim.w * sim.h
+                        sim.set_hands(np.frombuffer(raw, np.uint8).reshape(sim.w, sim.h) > 0 if ok else np.zeros((sim.w, sim.h), bool))
+                return self._json({"ok": True})
             if u.path == "/api/select":
                 with RUNNER.lock:
                     sim = RUNNER.sim
@@ -191,6 +211,9 @@ class Handler(BaseHTTPRequestHandler):
             RUNNER.paused = False
         elif act == "stop":
             RUNNER.stop()
+        elif act == "transition":
+            RUNNER.transition = bool(body.get("value"))
+            RUNNER.hold_until = 0.0
         elif act == "speed":
             RUNNER.speed = min(max(float(body["value"]), 1), MAX_SPEED)
         return self._json({"ok": True})

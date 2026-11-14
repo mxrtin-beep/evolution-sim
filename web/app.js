@@ -180,7 +180,7 @@ function warn() {
 let brainView, deathChart, divChart;
 let polling = false, stats = [], world = null, spotCanvas = null, terrainCanvas = null, S = 5;
 let selected = null, brainGen = 0, brainGens = 1, brainLive = true, brainMode = 'pop', brainCache = {}, lastFrame = null, brainPlay = null;
-let tickBusy = false, statsBusy = false, artShown = false, lastTver = -1;
+let tickBusy = false, statsBusy = false, artShown = false, lastTver = -1, lastTrid = 0, trAnim = null;
 
 function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
@@ -195,7 +195,9 @@ async function startRun() {
 }
 function enterRun(resumed) {
   document.body.dataset.view = 'run'; artShown = false;
-  lastTver = -1; stats = []; brainCache = {}; selected = null; brainGen = 0; brainLive = true; brainMode = 'pop'; lastFrame = null;
+  lastTver = -1; lastTrid = 0; trAnim = null; $('#trans-note').hidden = true;
+  Hands.init(map.w, map.h); Hands.setSource('off'); syncHandButtons();
+  stats = []; brainCache = {}; selected = null; brainGen = 0; brainLive = true; brainMode = 'pop'; lastFrame = null;
   setBrainMode('pop');
   S = Math.max(2, Math.ceil(720 / Math.max(map.w, map.h)));
   world = $('#world'); world.width = map.w * S; world.height = map.h * S;
@@ -229,12 +231,65 @@ function renderWorld() {
       g.fillStyle = `rgba(255,47,160,${Math.min(.85, v / 255 * 1.1)})`; g.fillRect(x * S, y * S, S, S);
     }
   }
+  if (Hands.active && Hands.any) { g.imageSmoothingEnabled = false; g.globalAlpha = .45; g.drawImage(Hands.canvas, 0, 0, world.width, world.height); g.globalAlpha = 1; }
+  if (trAnim) { drawTransition(g, trAnim); return; }
   if ($('#t-cells').checked) {
     const f = lastFrame;
     for (let i = 0; i < f.x.length; i++) { g.fillStyle = cellColor(f.c[i]); g.fillRect(f.x[i] * S, f.y[i] * S, S, S); }
   }
   if (selected && selected.pos) {
     g.strokeStyle = '#111'; g.lineWidth = 2; g.strokeRect(selected.pos[0] * S - 3, selected.pos[1] * S - 3, S + 6, S + 6);
+  }
+}
+
+/* generation changeover: who died, who bred, where the children appear */
+const TR_A = 1.1, TR_B = 2.2, TR_END = 3.4;
+function drawTransition(g, a) {
+  const t = (performance.now() - a.t0) / 1000, d = a.d, note = $('#trans-note');
+  if (t > TR_END) { trAnim = null; note.hidden = true; return; }
+  const surv = d.survivors, ch = d.children, S2 = S;
+  note.hidden = false;
+  note.textContent = `Generation ${d.gen + 1}: ${d.dead.length / 3} died, ${surv.x.length} survived and bred ${ch.x.length} new cells for generation ${d.gen + 2}`;
+  const ease = x => Math.min(1, Math.max(0, x));
+  const survAlpha = t < TR_A ? 1 : 1 - .65 * ease((t - TR_A) / (TR_B - TR_A)) - (t > TR_B ? .35 * ease((t - TR_B) / 0.5) : 0);
+  // dead: crosses in their cause-of-death colour, pulsing then fading
+  const deadAlpha = t < TR_A ? .65 + .35 * Math.sin(t * 12) : 1 - ease((t - TR_A) / .6);
+  if (deadAlpha > 0) {
+    g.lineWidth = 2; g.globalAlpha = Math.max(0, deadAlpha);
+    for (let i = 0; i < d.dead.length; i += 3) {
+      const x = (d.dead[i] + .5) * S2, y = (d.dead[i + 1] + .5) * S2, r = S2 * 1.1;
+      g.strokeStyle = causeColor[d.dead[i + 2]] || '#ff2d2d';
+      g.beginPath(); g.moveTo(x - r, y - r); g.lineTo(x + r, y + r); g.moveTo(x + r, y - r); g.lineTo(x - r, y + r); g.stroke();
+    }
+    g.globalAlpha = 1;
+  }
+  if (survAlpha > 0) {
+    g.globalAlpha = Math.max(0, survAlpha);
+    for (let i = 0; i < surv.x.length; i++) { g.fillStyle = cellColor(surv.c[i]); g.fillRect(surv.x[i] * S2, surv.y[i] * S2, S2, S2); }
+    g.globalAlpha = 1;
+  }
+  // parent -> child lines
+  if (t > TR_A) {
+    const p = ease((t - TR_A) / (TR_B - TR_A)), fade = t > TR_B ? 1 - ease((t - TR_B) / (TR_END - TR_B)) : 1;
+    g.lineWidth = 1;
+    for (let i = 0; i < ch.x.length; i++) {
+      g.strokeStyle = cellColor(ch.c[i]); g.globalAlpha = .55 * fade;
+      ch.p[i].forEach((pi, k) => {
+        const px = (surv.x[pi] + .5) * S2, py = (surv.y[pi] + .5) * S2, cx = (ch.x[i] + .5) * S2, cy = (ch.y[i] + .5) * S2;
+        g.globalAlpha = (k ? .25 : .55) * fade;
+        g.beginPath(); g.moveTo(px, py); g.lineTo(px + (cx - px) * p, py + (cy - py) * p); g.stroke();
+      });
+    }
+    g.globalAlpha = 1;
+  }
+  // children pop in
+  if (t > TR_B) {
+    const k = ease((t - TR_B) / 0.6), size = S2 * (1 + 1.6 * (1 - k));
+    for (let i = 0; i < ch.x.length; i++) {
+      const cx = (ch.x[i] + .5) * S2, cy = (ch.y[i] + .5) * S2;
+      g.fillStyle = cellColor(ch.c[i]); g.fillRect(ch.x[i] * S2, ch.y[i] * S2, S2, S2);
+      if (k < 1) { g.strokeStyle = '#111'; g.lineWidth = 1.5; g.strokeRect(cx - size / 2, cy - size / 2, size, size); }
+    }
   }
 }
 
@@ -265,6 +320,10 @@ async function loop() {
         lastTver = f.tver;
         const tr = await api('terrain');
         if (tr.data) { map.terrain = Uint8Array.from(atob(tr.data), c => c.charCodeAt(0)); drawTerrain(); }
+      }
+      if (f.trid !== lastTrid) {
+        lastTrid = f.trid;
+        if ($('#t-trans').checked) { const d = await api('transition'); if (d.survivors) trAnim = { d, t0: performance.now() }; }
       }
       lastFrame = f; updateChips(f); renderWorld();
       if (f.n_stats > stats.length) await pullStats();
@@ -319,7 +378,7 @@ function bindRunUI() {
   $('#btn-start').onclick = startRun;
   $('#btn-art').onclick = () => openArt().catch(console.error);
   $('#art-close').onclick = () => $('#art-modal').hidden = true;
-  $('#btn-new').onclick = async () => { await api('control', { action: 'stop' }); document.body.dataset.view = 'setup'; $('#run-chips').innerHTML = ''; clearInterval(brainPlay); };
+  $('#btn-new').onclick = async () => { Hands.stop(); await api('control', { action: 'stop' }); document.body.dataset.view = 'setup'; $('#run-chips').innerHTML = ''; clearInterval(brainPlay); };
   $('#btn-play').onclick = async () => { const paused = lastFrame && lastFrame.paused; await api('control', { action: paused ? 'resume' : 'pause' }); };
   $('#speed').oninput = async () => { updateSpeedLabel(); await api('control', { action: 'speed', value: speedFromSlider() }); };
   updateSpeedLabel();
@@ -327,6 +386,13 @@ function bindRunUI() {
   $('#spot-mode').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cause').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cells').onchange = renderWorld;
+  $('#t-trans').onchange = async e => { trAnim = null; $('#trans-note').hidden = true; await api('control', { action: 'transition', value: e.target.checked }); };
+  $('#hand-mouse').onclick = () => toggleHand('mouse');
+  $('#hand-cam').onclick = () => toggleHand('webcam');
+  Hands.onStatus = (t, alert) => { const el = $('#hand-status'); el.textContent = t; el.classList.toggle('alert', !!alert); };
+  world = $('#world');
+  world.addEventListener('mousemove', e => { const r = world.getBoundingClientRect(); Hands.mouseAt((e.clientX - r.left) / r.width * map.w, (e.clientY - r.top) / r.height * map.h); });
+  world.addEventListener('mouseleave', () => Hands.mouseAt(null));
   $('#t-pher').onchange = renderWorld;
   $('#clear-spots').onclick = () => { stats.forEach(s => s.deaths = []); spotCanvas.getContext('2d').clearRect(0, 0, spotCanvas.width, spotCanvas.height); renderWorld(); };
   world = $('#world');
@@ -348,6 +414,17 @@ function bindRunUI() {
   $('#brain-min').oninput = e => { $('#brain-min-v').textContent = e.target.value + '%'; brainView.set({ minFreq: e.target.value / 100 }); };
   $('#brain-hide').onchange = e => brainView.set({ hideUnused: e.target.checked });
   document.addEventListener('keydown', e => { if (e.code === 'Space' && document.body.dataset.view === 'run' && e.target.tagName !== 'INPUT') { e.preventDefault(); $('#btn-play').click(); } });
+}
+
+async function toggleHand(kind) {
+  const next = Hands.source === kind ? 'off' : kind;
+  try { await Hands.setSource(next); } catch (e) {}
+  syncHandButtons();
+}
+function syncHandButtons() {
+  $('#hand-cam').classList.toggle('on', Hands.source === 'webcam');
+  $('#hand-mouse').classList.toggle('on', Hands.source === 'mouse');
+  if (Hands.source === 'off') Hands.onStatus(cfg.rules.hands && cfg.rules.hands.enabled ? 'The Hands rule is on: switch on the webcam or mouse so cells have a hand to react to.' : '', cfg.rules.hands && cfg.rules.hands.enabled);
 }
 
 function setBrainMode(m) {
