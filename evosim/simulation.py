@@ -5,21 +5,22 @@ from . import genome as gn
 from . import world
 from .rules import RULES, RuleSet
 
+PATH_CELLS, PATH_SAMPLES, PATH_MAX_GENS = 100, 50, 160  # artwork recording limits
 PAD = 6  # neighbourhood lookup radius (also the padding around the occupancy grid)
 
 SETTINGS = [
     # key, label, group, min, max, step, default, hint
-    ("population", "Population size", "Population", 10, 2000, 10, 300, "Cells alive at the start of every generation."),
+    ("population", "Population size", "Population", 10, 2000, 10, 100, "Cells alive at the start of every generation."),
     ("steps", "Generation length (steps)", "Population", 20, 1000, 10, 200, "How many steps the cells get to act before selection."),
     ("max_gens", "Generations to run (0 = forever)", "Population", 0, 10000, 10, 500, ""),
-    ("n_genes", "Genes per genome", "Genetics", 1, 100, 1, 20, "Each gene wires one connection in the brain."),
-    ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 4, "Hidden neurons available to the brain."),
+    ("n_genes", "Genes per genome", "Genetics", 1, 100, 1, 6, "Each gene wires one connection in the brain."),
+    ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 2, "Hidden neurons available to the brain."),
     ("mutation_rate", "Mutation rate (per hex digit)", "Genetics", 0, 0.1, 0.0005, 0.005, "Chance that each of a gene's 8 hex digits is re-rolled in every child."),
 ]
 
 DEFAULTS = {s[0]: s[6] for s in SETTINGS}
 DEFAULTS.update({
-    "mode": "sexual", "partners": 1, "crossover": "gene", "offspring": "equal",
+    "mode": "asexual", "partners": 1, "crossover": "gene", "offspring": "equal",
     "spawn": "anywhere", "seed": None, "rules": {},
 })
 LIMITS = {s[0]: (s[3], s[4]) for s in SETTINGS}
@@ -91,9 +92,10 @@ class Simulation:
         self.occp[...] = -1
         self.occp[PAD:-PAD, PAD:-PAD] = np.where(wall, -1, 0)
 
-        # artwork accumulators: every visit of every cell, hue-coded by generation
-        self.trail = np.zeros((self.w, self.h, 3), np.float32)
-        self.death_heat = np.zeros((self.w, self.h), np.float32)
+        # movement recording for the end-of-run artwork
+        self.path_stride = 1
+        self.paths = {}
+        self.last_path = None
         self.gen = 0
         self.status = "ready"  # ready | running | extinct | finished
         self.stats = []
@@ -114,7 +116,6 @@ class Simulation:
         self.Wii = np.ascontiguousarray(W[:, S:S + I, S:S + I])
         self.Wsa = np.ascontiguousarray(W[:, :S, S + I:])
         self.Wia = np.ascontiguousarray(W[:, S:S + I, S + I:])
-        self.n_func = F.reshape(n, -1).sum(axis=1)
         self.brains.append(self._aggregate(F, W))
 
         # place cells
@@ -138,8 +139,27 @@ class Simulation:
         self.act = np.zeros((n, gn.N_ACTIONS))
         self.sens = np.zeros((n, gn.N_SENSORS))
         self.age = 0
+        self.path_idx = self.rng.choice(n, size=min(n, PATH_CELLS), replace=False)
+        self.path_every = max(1, self.steps // PATH_SAMPLES)
+        self.path_buf = []
+        self._record_path()
         self.death_log = []   # (x, y, cause) rows
         self.cause_counts = {}
+
+    def _record_path(self):
+        i = self.path_idx
+        pos = np.stack([self.x[i], self.y[i]], axis=1).astype(np.int16)
+        pos[~self.alive[i]] = -1
+        self.path_buf.append(pos)
+
+    def _store_path(self):
+        arr = np.stack(self.path_buf)  # (T, k, 2)
+        self.last_path = (self.gen, arr)
+        if self.gen % self.path_stride == 0:
+            self.paths[self.gen] = arr
+        if len(self.paths) > PATH_MAX_GENS:
+            self.path_stride *= 2
+            self.paths = {g: a for g, a in self.paths.items() if g % self.path_stride == 0}
 
     def _aggregate(self, F, W):
         n = F.shape[0]
@@ -208,21 +228,11 @@ class Simulation:
         if len(idx) == 0:
             return
         self.alive[idx] = False
-        np.add.at(self.death_heat, (self.x[idx], self.y[idx]), 1.0)
         self.cause[idx] = rule_index
         self.occp[self.x[idx] + PAD, self.y[idx] + PAD] = 0
         rid = RULES[rule_index]["id"]
         self.cause_counts[rid] = self.cause_counts.get(rid, 0) + len(idx)
         self.death_log.append(np.stack([self.x[idx], self.y[idx], np.full(len(idx), rule_index)], axis=1))
-
-    def _gen_rgb(self):
-        horizon = (self.cfg["max_gens"] / 3.0) if self.cfg["max_gens"] else 120.0
-        t = 1 - np.exp(-self.gen / max(horizon, 1.0))      # 0 (first gen) -> ~1 (late)
-        hue = (0.58 + 0.95 * t) % 1.0                        # blue -> violet -> red -> gold
-        r = np.clip(np.abs(hue * 6 - 3) - 1, 0, 1)
-        g = np.clip(2 - np.abs(hue * 6 - 2), 0, 1)
-        b = np.clip(2 - np.abs(hue * 6 - 4), 0, 1)
-        return np.array([r, g, b], np.float32) * 0.85 + 0.15
 
     def step(self):
         """Advance every living cell by one step."""
@@ -234,9 +244,9 @@ class Simulation:
             self._apply(ia, fired)
             for rule_index, idx in self.rules.step(self, np.flatnonzero(self.alive), self.rng):
                 self._record_deaths(idx, rule_index)
-            al = np.flatnonzero(self.alive)
-            np.add.at(self.trail, (self.x[al], self.y[al]), self._gen_rgb())
         self.age += 1
+        if self.age % self.path_every == 0:
+            self._record_path()
 
     def _apply(self, ia, f):
         a = gn.ACTION_IDX
@@ -281,6 +291,7 @@ class Simulation:
         """Apply end-of-generation selection, record stats, breed the next generation."""
         n0 = self.n
         ia = np.flatnonzero(self.alive)
+        self._store_path()
         claimed = set()
         for rule_index, idx in self.rules.end(self, ia, self.rng):
             idx = np.array([i for i in idx.tolist() if i not in claimed], dtype=np.int64)
@@ -292,8 +303,7 @@ class Simulation:
             "gen": self.gen, "pop": n0, "survivors": int(len(survivors)),
             "death_rate": round(100.0 * (n0 - len(survivors)) / n0, 2),
             "diversity": round(gn.diversity(self.G), 2),
-            "genomes": round(gn.distinct_genomes(self.G), 2),
-            "complexity": round(float(self.n_func.mean()), 2),
+            "minority": round(gn.percent_off_mode(self.G), 2),
             "causes": dict(self.cause_counts),
             "deaths": deaths.astype(int).ravel().tolist(),
         }
@@ -340,17 +350,17 @@ class Simulation:
         }
 
     def art(self):
+        """Recorded cell movement (sampled generations) for the end-of-run artwork."""
         import base64
-        mx = float(self.trail.max()) or 1.0
-        dm = float(self.death_heat.max()) or 1.0
-        q = lambda a, m: np.clip(a / m * 65535, 0, 65535).astype("<u2")
+        paths = dict(self.paths)
+        if self.last_path is not None:
+            paths[self.last_path[0]] = self.last_path[1]
+        gens = sorted(paths)
         return {
-            "w": self.w, "h": self.h, "gens": len(self.stats), "status": self.status,
-            "trail": base64.b64encode(q(self.trail, mx).tobytes()).decode(),
-            "deaths": base64.b64encode(q(self.death_heat, dm).tobytes()).decode(),
+            "w": self.w, "h": self.h, "total": len(self.stats), "status": self.status,
             "terrain": base64.b64encode(self.terrain.tobytes()).decode(),
-            "survival": [round(100 - s["death_rate"], 1) for s in self.stats[-400:]],
-            "diversity": [s["diversity"] for s in self.stats[-400:]],
+            "gens": [{"g": g, "t": int(paths[g].shape[0]), "k": int(paths[g].shape[1]),
+                      "d": base64.b64encode(paths[g].astype("<i2").tobytes()).decode()} for g in gens],
         }
 
     def nearest_cell(self, px, py):

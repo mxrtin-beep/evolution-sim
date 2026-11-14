@@ -8,10 +8,10 @@
 </head>
 <body data-view="setup">
 <header class="topbar">
-  <div class="brand"><span class="dna">🧬</span> Evolution Sim</div>
+  <div class="brand"><span class="dna"></span>Evolution Sim</div>
   <div id="run-chips" class="chips"></div>
   <div class="spacer"></div>
-  <button id="btn-new" class="ghost run-only">⟵ Settings</button>
+  <button id="btn-new" class="ghost run-only">Settings</button>
 </header>
 
 <!-- ============================ SETUP ============================ -->
@@ -33,7 +33,7 @@
         </div>
         <p class="muted small">Click and drag on the map to paint your own walls, hazards and safe zones. Changing the map shape, size or zone preset resets the painting.</p>
         <div id="warnings"></div>
-        <button class="primary big" id="btn-start">▶ Start evolution</button>
+        <button class="primary big" id="btn-start">Start evolution</button>
       </div>
     </aside>
   </section>
@@ -45,7 +45,7 @@
     <div class="run-left">
       <div class="card">
         <div class="toolbar">
-          <button id="btn-play" class="primary">⏸ Pause</button>
+          <button id="btn-play" class="primary">Pause</button>
           <label class="inline grow">Speed
             <input type="range" id="speed" min="0" max="100" value="55">
             <b id="speed-v"></b>
@@ -61,16 +61,16 @@
           <label class="check"><input type="checkbox" id="t-cause"> Colour by cause</label>
           <label class="check"><input type="checkbox" id="t-cells" checked> Cells</label>
           <button class="ghost small" id="clear-spots">Clear spots</button>
-          <button class="ghost small" id="btn-art" title="Render an artwork of every generation's movement">🎨 Final art</button>
+          <button class="ghost small" id="btn-art" title="Render an artwork of every generation's movement">Final art</button>
         </div>
-        <div class="world-wrap"><canvas id="world"></canvas><div id="world-tip" class="tip"></div></div>
+        <div class="world-wrap"><canvas id="world"></canvas></div>
         <div class="muted small center" id="world-hint">Click a cell to inspect its brain.</div>
         <div id="banner" class="banner" hidden></div>
         <div id="cause-chips" class="chips cause"></div>
       </div>
       <div class="card"><h3>Death rate <span class="muted small">% of cells dying each generation</span></h3>
         <canvas id="chart-death" class="chart"></canvas></div>
-      <div class="card"><h3>Genetic diversity <span class="muted small">% of distinct genes</span></h3>
+      <div class="card"><h3>Genetic diversity <span class="muted small">distinct genes: % of gene slots holding a unique value. unlike most common: % of cells whose genome differs from the most common genome</span></h3>
         <canvas id="chart-div" class="chart"></canvas></div>
     </div>
     <div class="run-right">
@@ -85,7 +85,7 @@
         <div class="brain-sub muted small" id="brain-sub"></div>
         <div class="brain-wrap"><canvas id="brain"></canvas><div id="brain-tip" class="tip"></div></div>
         <div class="brain-controls" id="brain-controls">
-          <button class="ghost small" id="brain-play" title="Replay how the brain evolved">▶</button>
+          <button class="ghost small" id="brain-play" title="Replay how the brain evolved">Play</button>
           <input type="range" id="brain-gen" min="0" max="0" value="0">
           <span class="muted small" id="brain-gen-v">gen 1</span>
           <button class="ghost small" id="brain-live" title="Follow the live generation">Live</button>
@@ -108,8 +108,8 @@
 <script src="app.js"></script>
 <div id="art-modal" class="modal" hidden>
   <div class="modal-box">
-    <div class="modal-bar"><b>Your evolution, as art</b><span class="spacer"></span>
-      <button id="art-dl" class="primary">⬇ Download PNG</button><button id="art-close" class="ghost">Close</button></div>
+    <div class="modal-bar">
+      <button id="art-dl" class="primary">Download PNG</button><button id="art-close">Close</button></div>
     <div class="modal-scroll"><canvas id="art-canvas"></canvas></div>
   </div>
 </div>

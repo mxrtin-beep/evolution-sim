@@ -17,24 +17,24 @@ const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? 
 
 let SCHEMA, cfg, map;                  // setup state
 const T = { OPEN: 0, WALL: 1, HAZARD: 2, SAFE: 3 };
-const TERRAIN_COLORS = ['#10172a', '#3b4660', '#c0392b', '#1f9d55'];
+const TERRAIN_COLORS = ['#ffffff', '#111111', '#ffc4bf', '#bff0cf'];
 
 /* ============================================================== setup UI */
 async function init() {
   SCHEMA = await api('schema');
-  const saved = store.get('evosim.cfg', null);
-  cfg = { mode: 'sexual', partners: 1, crossover: 'gene', offspring: 'equal', spawn: 'anywhere', seed: '', rules: {}, ...(saved || {}) };
+  const saved = store.get('evosim.cfg2', null);
+  cfg = { mode: 'asexual', partners: 1, crossover: 'gene', offspring: 'equal', spawn: 'anywhere', seed: '', rules: {}, ...(saved || {}) };
   for (const s of SCHEMA.settings) if (cfg[s.key] == null) cfg[s.key] = s.default;
   for (const r of SCHEMA.rules) {
     cfg.rules[r.id] = { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(cfg.rules[r.id] || {}) };
   }
-  map = { shape: 'square', zone: 'safe_right', w: 128, h: 128, ...(store.get('evosim.map', {})), terrain: null };
+  map = { shape: 'square', zone: 'safe_right', w: 128, h: 128, ...(store.get('evosim.map2', {})), terrain: null };
   if (!saved) applyScenario(SCHEMA.scenarios[0], false);
   buildSetup();
   await loadMap();
   brainView = new BrainView($('#brain'), $('#brain-tip'), SCHEMA);
-  deathChart = new LineChart($('#chart-death'), [{ key: 'death_rate', label: 'Death rate', color: '#f87171' }], {});
-  divChart = new LineChart($('#chart-div'), [{ key: 'diversity', label: 'Gene diversity', color: '#38bdf8' }, { key: 'genomes', label: 'Distinct genomes', color: '#a78bfa', dash: [5, 4], width: 1.6 }], {});
+  deathChart = new LineChart($('#chart-death'), [{ key: 'death_rate', label: 'Death rate', color: '#ff2d2d' }], {});
+  divChart = new LineChart($('#chart-div'), [{ key: 'diversity', label: 'Distinct genes', color: '#1f5bff' }, { key: 'minority', label: 'Genomes unlike the most common one', color: '#ff2fa0' }], {});
   bindRunUI();
   // resume an in-progress run (e.g. after a page reload)
   const f = await api('frame');
@@ -56,7 +56,7 @@ function select(label, value, options, onchange, hint) {
   const s = h('select', { onchange: () => onchange(s.value) }, options.map(o => h('option', { value: o.id ?? o[0], selected: (o.id ?? o[0]) === value }, o.name ?? o[1])));
   return h('div', { class: 'field' }, h('label', {}, label), s, hint ? h('div', { class: 'hint' }, hint) : null);
 }
-const persist = () => { store.set('evosim.cfg', cfg); store.set('evosim.map', { shape: map.shape, zone: map.zone, w: map.w, h: map.h }); };
+const persist = () => { store.set('evosim.cfg2', cfg); store.set('evosim.map2', { shape: map.shape, zone: map.zone, w: map.w, h: map.h }); };
 
 function card(title, ...body) { return h('div', { class: 'card' }, h('h3', {}, title), ...body); }
 
@@ -198,7 +198,7 @@ function enterRun(resumed) {
   terrainCanvas = document.createElement('canvas'); terrainCanvas.width = world.width; terrainCanvas.height = world.height;
   spotCanvas = document.createElement('canvas'); spotCanvas.width = world.width; spotCanvas.height = world.height;
   drawTerrain();
-  $('#banner').hidden = true; $('#btn-play').textContent = '⏸ Pause';
+  $('#banner').hidden = true; $('#btn-play').textContent = 'Pause';
   deathChart.setData([]); divChart.setData([]); $('#cause-chips').innerHTML = '';
   if (resumed) api('frame').then(f => { $('#speed').value = sliderFromSpeed(f.speed); updateSpeedLabel(); });
   if (!tickBusy) loop();
@@ -209,24 +209,21 @@ function drawTerrain() {
   if (!map.terrain) return;
   for (let x = 0; x < map.w; x++) for (let y = 0; y < map.h; y++) {
     const v = map.terrain[x * map.h + y]; if (!v) continue;
-    g.fillStyle = TERRAIN_COLORS[v]; g.globalAlpha = v === T.WALL ? 1 : .55; g.fillRect(x * S, y * S, S, S);
+    g.fillStyle = TERRAIN_COLORS[v]; g.fillRect(x * S, y * S, S, S);
   }
-  g.globalAlpha = 1;
 }
-const cellColor = c => { const r = 80 + .69 * ((c >> 16) & 255), g = 80 + .69 * ((c >> 8) & 255), b = 80 + .69 * (c & 255); return `rgb(${r | 0},${g | 0},${b | 0})`; };
+const cellColor = c => '#' + c.toString(16).padStart(6, '0');   // the genome's own colour, undiluted, one pixel per cell
 
 function renderWorld() {
   if (!lastFrame || !world) return;
   const g = world.getContext('2d'); g.drawImage(terrainCanvas, 0, 0);
   if ($('#t-spots').checked) g.drawImage(spotCanvas, 0, 0);
   if ($('#t-cells').checked) {
-    const f = lastFrame, rad = Math.max(S * .62, 1.6);
-    for (let i = 0; i < f.x.length; i++) {
-      g.fillStyle = cellColor(f.c[i]); g.beginPath(); g.arc((f.x[i] + .5) * S, (f.y[i] + .5) * S, rad, 0, 7); g.fill();
-    }
+    const f = lastFrame;
+    for (let i = 0; i < f.x.length; i++) { g.fillStyle = cellColor(f.c[i]); g.fillRect(f.x[i] * S, f.y[i] * S, S, S); }
   }
   if (selected && selected.pos) {
-    g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc((selected.pos[0] + .5) * S, (selected.pos[1] + .5) * S, S * 1.6 + 2, 0, 7); g.stroke();
+    g.strokeStyle = '#111'; g.lineWidth = 2; g.strokeRect(selected.pos[0] * S - 3, selected.pos[1] * S - 3, S + 6, S + 6);
   }
 }
 
@@ -239,10 +236,9 @@ function drawSpots() {
   for (let k = Math.max(0, from); k < stats.length; k++) paintDeaths(g, stats[k].deaths, byCause);
 }
 function paintDeaths(g, d, byCause) {
-  const rad = Math.max(S * .7, 2);
   for (let i = 0; i < d.length; i += 3) {
-    g.fillStyle = byCause ? causeColor[d[i + 2]] + '38' : 'rgba(255,107,107,0.2)';
-    g.beginPath(); g.arc((d[i] + .5) * S, (d[i + 1] + .5) * S, rad, 0, 7); g.fill();
+    g.fillStyle = byCause ? causeColor[d[i + 2]] + '40' : 'rgba(255,45,45,0.22)';
+    g.fillRect(d[i] * S, d[i + 1] * S, S, S);
   }
 }
 
@@ -260,7 +256,7 @@ async function loop() {
       const done = f.status === 'extinct' || f.status === 'finished';
       if (done && !artShown) { artShown = true; openArt().catch(console.error); }
       const ban = $('#banner'); ban.hidden = !done; if (done) ban.textContent = f.message + ' Press “Settings” to start another run.';
-      $('#btn-play').textContent = f.paused ? '▶ Resume' : '⏸ Pause'; $('#btn-play').disabled = done;
+      $('#btn-play').textContent = f.paused ? 'Resume' : 'Pause'; $('#btn-play').disabled = done;
     } catch (e) { console.error(e); }
     await new Promise(r => setTimeout(r, Math.max(10, 60 - (performance.now() - t0))));
   }
@@ -294,7 +290,7 @@ function updateChips(f) {
   add('Generation', f.gen + 1 + (cfg.max_gens ? ' / ' + cfg.max_gens : ''));
   el.append(h('span', { class: 'chip' }, 'Step', h('b', {}, `${f.step}/${f.steps}`), h('span', { class: 'progress' }, h('i', { style: `width:${100 * f.step / f.steps}%` }))));
   add('Alive', `${f.alive} / ${f.n}`);
-  if (last) { add('Last death rate', last.death_rate.toFixed(1) + '%'); add('Diversity', last.diversity.toFixed(1) + '%'); add('Working connections', last.complexity.toFixed(1)); }
+  if (last) { add('Last death rate', last.death_rate.toFixed(1) + '%'); add('Diversity', last.diversity.toFixed(1) + '%'); }
 }
 
 /* ============================================================ run controls */
@@ -325,12 +321,12 @@ function bindRunUI() {
   });
   // brain controls
   $('#brain-mode').querySelectorAll('button').forEach(b => b.onclick = () => setBrainMode(b.dataset.m));
-  $('#brain-gen').oninput = e => { brainLive = false; brainGen = +e.target.value; clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = '▶'; updateBrain(lastFrame, true); };
+  $('#brain-gen').oninput = e => { brainLive = false; brainGen = +e.target.value; clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = 'Play'; updateBrain(lastFrame, true); };
   $('#brain-live').onclick = () => { brainLive = true; updateBrain(lastFrame, true); };
   $('#brain-play').onclick = () => {
-    if (brainPlay) { clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = '▶'; return; }
-    brainLive = false; if (brainGen >= brainGens - 1) brainGen = 0; $('#brain-play').textContent = '⏸';
-    brainPlay = setInterval(() => { if (brainGen >= brainGens - 1) { clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = '▶'; return; } brainGen++; updateBrain(lastFrame, true); }, 120);
+    if (brainPlay) { clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = 'Play'; return; }
+    brainLive = false; if (brainGen >= brainGens - 1) brainGen = 0; $('#brain-play').textContent = 'Stop';
+    brainPlay = setInterval(() => { if (brainGen >= brainGens - 1) { clearInterval(brainPlay); brainPlay = null; $('#brain-play').textContent = 'Play'; return; } brainGen++; updateBrain(lastFrame, true); }, 120);
   };
   $('#brain-min').oninput = e => { $('#brain-min-v').textContent = e.target.value + '%'; brainView.set({ minFreq: e.target.value / 100 }); };
   $('#brain-hide').onchange = e => brainView.set({ hideUnused: e.target.checked });

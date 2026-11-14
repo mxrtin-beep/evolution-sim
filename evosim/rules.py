@@ -16,38 +16,33 @@ def _num(key, label, lo, hi, step, default, hint=""):
 
 
 RULES = [
-    {"id": "hazard", "name": "Hazard pixels", "color": "#ff5d5d",
+    {"id": "hazard", "name": "Hazard pixels", "color": "#ff2d2d",
      "desc": "Cells die when they are within R pixels of a red hazard pixel.",
      "params": [_num("radius", "Kill distance R (px)", 0, 40, 1, 2), dict(WHEN, default="step")]},
-    {"id": "safe", "name": "Safe zone", "color": "#4ade80",
+    {"id": "safe", "name": "Safe zone", "color": "#00c34e",
      "desc": "At the end of the generation, cells that are further than R pixels from a green safe pixel die.",
      "params": [_num("radius", "Allowed distance R (px)", 0, 60, 1, 0)]},
-    {"id": "walls", "name": "Wall / edge proximity", "color": "#fbbf24",
+    {"id": "walls", "name": "Wall / edge proximity", "color": "#ff9500",
      "desc": "Cells die if they are within R pixels of a wall or the map edge.",
      "params": [_num("radius", "Kill distance R (px)", 0, 40, 1, 3), WHEN]},
-    {"id": "neighbors", "name": "Neighbours in range", "color": "#60a5fa",
+    {"id": "neighbors", "name": "Neighbours in range", "color": "#1f5bff",
      "desc": "Counts other cells within R pixels at the end of the generation. Too few (loners) "
              "or too many (overcrowding) means death.",
      "params": [_num("radius", "Radius R (px)", 1, 40, 1, 3),
                 _num("min", "Minimum neighbours", 0, 50, 1, 1),
                 _num("max", "Maximum neighbours (0 = no limit)", 0, 200, 1, 0)]},
-    {"id": "travel", "name": "Distance travelled", "color": "#c084fc",
+    {"id": "travel", "name": "Distance travelled", "color": "#a63dff",
      "desc": "Total steps moved over the generation. Under the minimum = lazy; "
              "over the maximum = ran out of energy (dies the moment it exceeds it).",
      "params": [_num("min", "Minimum steps moved", 0, 2000, 1, 0),
                 _num("max", "Energy budget: max steps moved (0 = no limit)", 0, 2000, 1, 0)]},
-    {"id": "displacement", "name": "Net displacement", "color": "#22d3ee",
+    {"id": "displacement", "name": "Net displacement", "color": "#00b8d9",
      "desc": "Straight-line distance between where the cell spawned and where it ends up.",
      "params": [_num("min", "Must end at least (px) from spawn", 0, 300, 1, 10),
                 _num("max", "Must stay within (px) of spawn (0 = no limit)", 0, 300, 1, 0)]},
-    {"id": "random", "name": "Random death", "color": "#9ca3af",
+    {"id": "random", "name": "Random death", "color": "#ff2fa0",
      "desc": "Pure bad luck: every cell has the same chance of dying, regardless of its brain.",
      "params": [_num("chance", "Chance of dying (%)", 0, 100, 0.5, 10), dict(WHEN, default="end")]},
-    {"id": "complexity", "name": "Brain complexity", "color": "#f472b6",
-     "desc": "Metabolic cost of thinking: cells whose brain has too many (or too few) working "
-             "connections die at the end of the generation.",
-     "params": [_num("min", "Minimum working connections", 0, 100, 1, 0),
-                _num("max", "Maximum working connections (0 = no limit)", 0, 200, 1, 0)]},
 ]
 RULE_INDEX = {r["id"]: i for i, r in enumerate(RULES)}
 
@@ -118,11 +113,6 @@ class RuleSet:
                     hit |= d > float(c["max"])
             elif rid == "random" and c["when"] == "end":
                 hit = rng.random(len(ia)) < float(c["chance"]) / 100.0
-            elif rid == "complexity":
-                n = ctx.n_func[ia]
-                hit = n < float(c["min"])
-                if float(c["max"]) > 0:
-                    hit |= n > float(c["max"])
             if hit is not None and hit.any():
                 out.append((RULE_INDEX[rid], ia[hit]))
         return out

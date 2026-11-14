@@ -93,7 +93,10 @@ class SimulationTests(unittest.TestCase):
     def test_art_payload(self):
         t = world.build_terrain("square", "none", 32, 32)
         sim = run({"seed": 2, "population": 30, "steps": 5}, t, 1)
-        self.assertEqual(sim.art()["w"], 32)
+        art = sim.art()
+        self.assertEqual(art["w"], 32)
+        self.assertEqual(len(art["gens"]), 1)
+        self.assertGreater(art["gens"][0]["t"], 1)
 
 
 if __name__ == "__main__":

@@ -165,7 +165,9 @@ def diversity(genomes):
     return 100.0 * len(np.unique(genomes)) / genomes.size
 
 
-def distinct_genomes(genomes):
+def percent_off_mode(genomes):
+    """Percent of cells whose genome differs from the most common genome."""
     if len(genomes) == 0:
         return 0.0
-    return 100.0 * len(np.unique(genomes, axis=0)) / len(genomes)
+    _, counts = np.unique(genomes, axis=0, return_counts=True)
+    return 100.0 * (1 - counts.max() / len(genomes))

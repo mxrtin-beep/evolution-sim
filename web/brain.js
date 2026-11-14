@@ -47,10 +47,10 @@ class BrainView {
     if (c.width !== Math.round(L.W * dpr) || c.height !== Math.round(L.H * dpr)) { c.width = Math.round(L.W * dpr); c.height = Math.round(L.H * dpr); }
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, L.W, L.H);
     const { pos } = L, S = this.sensors.length, I = this.nInner, M = pos.length;
+    const FONT_ = '"Helvetica Neue",Helvetica,Arial,sans-serif';
 
-    // column headers + soft lanes
-    g.font = '600 10.5px system-ui'; g.textAlign = 'center'; g.fillStyle = '#6b7896'; g.textBaseline = 'middle';
-    [['SENSES', L.sx], ['INNER NEURONS', L.ix], ['ACTIONS', L.ax]].forEach(([t, x]) => g.fillText(t.split('').join(String.fromCharCode(8202)), x, 18));
+    g.font = '700 11px ' + FONT_; g.textAlign = 'center'; g.fillStyle = '#111'; g.textBaseline = 'middle';
+    [['SENSES', L.sx], ['INNER NEURONS', L.ix], ['ACTIONS', L.ax]].forEach(([t, x]) => g.fillText(t, x, 18));
 
     const edges = this.edges.filter(e => e[2] >= this.minFreq && e[0] < M && e[1] < M);
     const part = new Array(M).fill(0);
@@ -60,44 +60,33 @@ class BrainView {
     edges.slice().sort((a, b) => a[2] - b[2]).forEach(([s, d, f, w]) => {
       const a = pos[s], b = pos[d];
       const incident = hov < 0 || s === hov || d === hov;
-      let alpha = (0.07 + 0.93 * Math.pow(f, 1.1)) * (incident ? 1 : 0.12);
-      if (hov >= 0 && incident) alpha = Math.min(1, alpha + .25);
-      const width = 0.8 + 2.6 * Math.min(Math.abs(w) / 4, 1);
-      g.strokeStyle = (w >= 0 ? 'rgba(96,165,250,' : 'rgba(248,113,113,') + alpha + ')';
-      g.fillStyle = g.strokeStyle; g.lineWidth = width; g.lineCap = 'round';
+      let alpha = (0.07 + 0.93 * Math.pow(f, 1.1)) * (incident ? 1 : 0.1);
+      const width = 1 + 2.4 * Math.min(Math.abs(w) / 4, 1);
+      g.strokeStyle = (w >= 0 ? 'rgba(31,91,255,' : 'rgba(255,149,0,') + alpha + ')';
+      g.fillStyle = g.strokeStyle; g.lineWidth = width; g.lineCap = 'butt';
       this.edge(g, a, b, s === d, d >= S + I || s < S);
     });
 
-    // nodes
+    const colors = { sensor: '255,212,0', inner: '0,195,78', action: '255,45,45' };
     pos.forEach((p, i) => {
       const n = this.nodeInfo(i), used = part[i] > 0;
       if (this.hideUnused && !used && !this.cellMode) return;
-      const base = { sensor: [52, 211, 153], inner: [167, 139, 250], action: [251, 191, 36] }[n.kind];
-      let act = this.activation ? Math.min(1, Math.abs(this.activation[i])) : 0;
-      const dim = (used || this.cellMode && used) ? 1 : 0.28;
-      g.globalAlpha = (hov >= 0 && hov !== i) ? Math.min(dim, 1) * 0.75 : dim;
-      // halo scales with how common the neuron's connections are
-      const halo = (used ? 0.25 + 0.75 * part[i] : 0) * 7 + act * 8;
-      if (halo > 1) { const rg = g.createRadialGradient(p.x, p.y, p.r, p.x, p.y, p.r + halo); rg.addColorStop(0, `rgba(${base},.55)`); rg.addColorStop(1, `rgba(${base},0)`); g.fillStyle = rg; g.beginPath(); g.arc(p.x, p.y, p.r + halo, 0, 7); g.fill(); }
-      const gr = g.createRadialGradient(p.x - p.r * .35, p.y - p.r * .4, p.r * .1, p.x, p.y, p.r);
-      const lit = 0.55 + 0.45 * act;
-      gr.addColorStop(0, `rgb(${base.map(v => Math.min(255, v * 0.5 + 140) | 0)})`);
-      gr.addColorStop(.55, `rgb(${base.map(v => v * lit | 0)})`);
-      gr.addColorStop(1, `rgb(${base.map(v => v * 0.55 * lit | 0)})`);
-      g.fillStyle = gr; g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
-      g.lineWidth = (this.fired && this.fired[i - S - I] ? 2.4 : 1.2);
-      g.strokeStyle = this.fired && n.kind === 'action' && this.fired[i - S - I] ? '#fff' : `rgba(255,255,255,.35)`;
-      g.stroke();
-      if (n.kind === 'inner') { g.fillStyle = '#0b1020'; g.font = '700 11px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n.key.slice(1), p.x, p.y + .5); }
-      g.globalAlpha = 1;
-      if (n.kind !== 'inner') {
-        g.font = '12px system-ui'; g.textBaseline = 'middle';
-        g.fillStyle = (used ? '#e6ebf5' : '#5d6988'); if (hov === i) g.fillStyle = '#fff';
+      const act = this.activation ? Math.min(1, Math.abs(this.activation[i])) : 0;
+      let fill = this.cellMode ? (used ? 0.35 + 0.65 * act : 0.12) : (used ? 0.3 + 0.7 * part[i] : 0.12);
+      if (hov >= 0 && hov !== i) fill *= .8;
+      const fired = this.fired && n.kind === 'action' && this.fired[i - S - I];
+      g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      g.fillStyle = `rgba(${colors[n.kind]},${fill})`; g.fill();
+      g.lineWidth = fired || hov === i ? 3 : 1.5; g.strokeStyle = used || hov === i ? '#111' : 'rgba(17,17,17,.3)'; g.stroke();
+      if (n.kind === 'inner') { g.fillStyle = '#111'; g.font = '700 11px ' + FONT_; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n.key.slice(1), p.x, p.y + .5); }
+      else {
+        g.font = '12px ' + FONT_; g.textBaseline = 'middle';
+        g.fillStyle = used || hov === i ? '#111' : '#9a9a90';
         if (n.kind === 'sensor') { g.textAlign = 'right'; g.fillText(n.name, p.x - p.r - 8, p.y); }
         else { g.textAlign = 'left'; g.fillText(n.name, p.x + p.r + 8, p.y); }
       }
     });
-    if (!edges.length) { g.fillStyle = '#6b7896'; g.font = '13px system-ui'; g.textAlign = 'center'; g.fillText('No connections above the frequency filter', L.W / 2, L.H / 2); }
+    if (!edges.length) { g.fillStyle = '#6a6a62'; g.font = '13px ' + FONT_; g.textAlign = 'center'; g.fillText('No connections above the frequency filter', L.W / 2, L.H / 2); }
   }
   edge(g, a, b, self, horizontal) {
     g.beginPath();
