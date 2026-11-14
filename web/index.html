@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evolution Sim</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-view="setup">
+<header class="topbar">
+  <div class="brand"><span class="dna">🧬</span> Evolution Sim</div>
+  <div id="run-chips" class="chips"></div>
+  <div class="spacer"></div>
+  <button id="btn-new" class="ghost run-only">⟵ Settings</button>
+</header>
+
+<!-- ============================ SETUP ============================ -->
+<main id="setup" class="setup-only">
+  <section class="setup-grid">
+    <div class="setup-col" id="setup-form"></div>
+    <aside class="setup-side">
+      <div class="card sticky">
+        <h3>Map preview <span class="muted small" id="map-info"></span></h3>
+        <div class="map-wrap"><canvas id="map-preview"></canvas></div>
+        <div class="legend">
+          <span><i class="sw wall"></i>Wall</span><span><i class="sw hazard"></i>Hazard</span>
+          <span><i class="sw safe"></i>Safe</span><span><i class="sw open"></i>Open</span>
+        </div>
+        <div class="paint">
+          <div class="seg" id="paint-tool"></div>
+          <label class="inline">Brush <input type="range" id="brush" min="1" max="14" value="4"><b id="brush-v">4</b></label>
+          <button class="ghost small" id="clear-paint">Clear zones</button>
+        </div>
+        <p class="muted small">Click and drag on the map to paint your own walls, hazards and safe zones. Changing the map shape, size or zone preset resets the painting.</p>
+        <div id="warnings"></div>
+        <button class="primary big" id="btn-start">▶ Start evolution</button>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<!-- ============================== RUN ============================ -->
+<main id="run" class="run-only">
+  <section class="run-grid">
+    <div class="run-left">
+      <div class="card">
+        <div class="toolbar">
+          <button id="btn-play" class="primary">⏸ Pause</button>
+          <label class="inline grow">Speed
+            <input type="range" id="speed" min="0" max="100" value="55">
+            <b id="speed-v"></b>
+          </label>
+        </div>
+        <div class="toolbar wrap">
+          <label class="check"><input type="checkbox" id="t-spots"> Death spots</label>
+          <select id="spot-mode" title="Which generations' deaths to show">
+            <option value="all">All generations</option>
+            <option value="recent">Last 10 generations</option>
+            <option value="last">Last generation only</option>
+          </select>
+          <label class="check"><input type="checkbox" id="t-cause"> Colour by cause</label>
+          <label class="check"><input type="checkbox" id="t-cells" checked> Cells</label>
+          <button class="ghost small" id="clear-spots">Clear spots</button>
+          <button class="ghost small" id="btn-art" title="Render an artwork of every generation's movement">🎨 Final art</button>
+        </div>
+        <div class="world-wrap"><canvas id="world"></canvas><div id="world-tip" class="tip"></div></div>
+        <div class="muted small center" id="world-hint">Click a cell to inspect its brain.</div>
+        <div id="banner" class="banner" hidden></div>
+        <div id="cause-chips" class="chips cause"></div>
+      </div>
+      <div class="card"><h3>Death rate <span class="muted small">% of cells dying each generation</span></h3>
+        <canvas id="chart-death" class="chart"></canvas></div>
+      <div class="card"><h3>Genetic diversity <span class="muted small">% of distinct genes</span></h3>
+        <canvas id="chart-div" class="chart"></canvas></div>
+    </div>
+    <div class="run-right">
+      <div class="card brain-card">
+        <div class="brain-head">
+          <h3>Brain evolution</h3>
+          <div class="seg" id="brain-mode">
+            <button data-m="pop" class="on">Whole population</button>
+            <button data-m="cell">Selected cell</button>
+          </div>
+        </div>
+        <div class="brain-sub muted small" id="brain-sub"></div>
+        <div class="brain-wrap"><canvas id="brain"></canvas><div id="brain-tip" class="tip"></div></div>
+        <div class="brain-controls" id="brain-controls">
+          <button class="ghost small" id="brain-play" title="Replay how the brain evolved">▶</button>
+          <input type="range" id="brain-gen" min="0" max="0" value="0">
+          <span class="muted small" id="brain-gen-v">gen 1</span>
+          <button class="ghost small" id="brain-live" title="Follow the live generation">Live</button>
+        </div>
+        <div class="brain-controls">
+          <label class="inline grow">Hide rarer than <input type="range" id="brain-min" min="0" max="60" value="3"><b id="brain-min-v">3%</b></label>
+          <label class="check"><input type="checkbox" id="brain-hide"> Hide unused neurons</label>
+        </div>
+        <div class="legend small">
+          <span><i class="line pos"></i>excites</span><span><i class="line neg"></i>inhibits</span>
+          <span class="muted">Opacity = share of cells carrying that connection</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="charts.js"></script>
+<script src="brain.js"></script>
+<script src="art.js"></script>
+<script src="app.js"></script>
+<div id="art-modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-bar"><b>Your evolution, as art</b><span class="spacer"></span>
+      <button id="art-dl" class="primary">⬇ Download PNG</button><button id="art-close" class="ghost">Close</button></div>
+    <div class="modal-scroll"><canvas id="art-canvas"></canvas></div>
+  </div>
+</div>
+</body>
+</html>

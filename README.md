@@ -1,48 +1,60 @@
 # 🧬 Evolution Sim
 
-A from-scratch artificial life simulator where thousands of cells, each controlled by its own tiny neural network, live, move, and reproduce on a 2D grid. Every cell's brain is encoded directly in a genome of hexadecimal genes — no backprop, no training labels. Behavior emerges purely from **selection pressure** and **random mutation** across generations, directly inspired by [David Miller's "I programmed some creatures. They evolved."](https://www.youtube.com/watch?v=N3tRFayqVtk)
+A from-scratch artificial-life simulator: hundreds of cells, each controlled by its own tiny neural network encoded in a genome of hex genes, live, move and reproduce on a 2D map. No backprop, no labels: behaviour emerges purely from **selection pressure** and **random mutation**. Inspired by [David Miller's "I programmed some creatures. They evolved."](https://www.youtube.com/watch?v=N3tRFayqVtk)
 
-🌐 **[Website](https://mxrtin-beep.github.io/evo-sim.html)**
+<p align="center"><img src="docs/run.png" alt="Evolution Sim running" width="100%"></p>
 
-<p align="center">
-  <img src="brain.png" alt="A cell's evolved neural network" width="60%">
-</p>
+## Run it
+
+```bash
+pip install -r requirements.txt   # just numpy
+python main.py                    # opens http://localhost:8000
+```
+
+Options: `--port 8080`, `--host 0.0.0.0`, `--no-browser`. Run the tests with `python -m unittest discover -s tests`.
+
+## The interface
+
+**1. Setup** (before the run)
+
+<p align="center"><img src="docs/setup.png" alt="Setup screen" width="80%"></p>
+
+- **Scenarios**: one-click presets (Escape to the right, Classic original rules, Mind the stripe, Herd instinct, Lean brains, ...).
+- **Population & time**: population size, generation length (steps), number of generations, seed.
+- **Genetics**: genes per genome, inner neurons, mutation rate.
+- **Reproduction**: asexual (clones) or sexual with 1-9 partners per child; gene-level or digit-level crossover; equal or random breeding.
+- **World**: 10 map shapes (square, circle, ring, diamond, cross, two chambers, hourglass, obstacle field, islands, spiral), any size, a spawn area, and zone presets. Paint your own walls / hazards / safe zones on the preview.
+- **Mortality conditions** (combine any): hazard pixels within R px, safe zone, wall/edge proximity, neighbours in range (too few *or* too many), distance travelled (laziness / energy budget), net displacement from spawn, random death, and brain-complexity cost. A cell dies as soon as any enabled rule says so.
+
+**2. During the run**
+
+- **Live world** with a speed slider (up to "max"), pause (`Space`), and click-a-cell to inspect it.
+- **Death spots** toggle: translucent dots where cells died (all generations / last 10 / last one), optionally coloured by cause of death.
+- **Live charts** of death rate (% dying per generation) and genetic diversity, with hover read-outs.
+- **Brain evolution**: one brain drawn for the whole population. Every connection's opacity is the share of cells carrying it, so common wiring is solid and rare wiring fades; blue excites, red inhibits. Scrub or replay through the generations to watch the brain evolve, or select a single cell to see its own brain with live neuron activations.
+
+**3. The final artwork**
+
+When a run ends (or any time via 🎨 *Final art*) you get a downloadable PNG: the footprints of every cell from every generation, hue-coded from first generation (blue) to last (gold), with glowing embers where cells died, framed by the run's setup (population, genes, mutation, reproduction, rules) and a unique seed-print.
+
+<p align="center"><img src="docs/art.png" alt="Generated artwork" width="60%"></p>
 
 ## How it works
 
-- **World** — a `WIDTH × HEIGHT` grid (`environment.py`) seeded with a population of cells at random, unoccupied positions.
-- **Genome** — each cell (`cell.py`) gets a genome of hex-encoded genes. Every gene is decoded into a `source → sink` neural connection with a signed weight, wiring up the cell's brain.
-- **Brain** — a tiny recurrent network (`brain.py`) of sensory, inner, and action neurons:
-  - **Sensory neurons** feed in the cell's age, position, nearby population density, forward/side blockage, an oscillator, a random signal, genetic similarity to its forward neighbor, and more.
-  - **Inner neurons** combine those signals with `tanh` activations.
-  - **Action neurons** decide what to do — move forward/backward/left/right/N/S/E/W, move randomly, or tune the cell's own responsiveness/oscillator — firing whenever activation clears a per-neuron threshold.
-- **Simulation loop** (`main.py`) — each generation runs for a fixed number of steps, rendered live with `pygame`. Every cell senses, thinks, and acts once per step.
-- **Selection pressure** — at the end of a generation, cells outside a "safe zone" or in overly sparse neighborhoods die off. Survivors reproduce (sexually, mixing genes from multiple parents, or asexually) to refill the population, with a small per-base mutation rate.
-- **Stats** — survival rate and genetic diversity are tracked and plotted every generation to `stats.png`.
-
-<p align="center">
-  <img src="stats.png" alt="Survival rate and genetic diversity over generations" width="60%">
-</p>
-
-## Running it
-
-```bash
-pip install pygame numpy networkx matplotlib
-python main.py
-```
-
-A window opens showing the population evolving in real time. Survival rate and genetic diversity charts are written to `stats.png` as the simulation progresses.
-
-## Tuning
-
-Key parameters live at the top of `main.py`:
-
-| Parameter | Description |
+| File | Role |
 |---|---|
-| `POPULATION` | Number of cells per generation |
-| `STEPS_PER_GENERATION` | Simulation steps before selection is applied |
-| `N_GENERATIONS` | Number of generations to run |
-| `MUTATION_RATE` | Probability of a mutation per gene base |
-| `N_PARENTS` | Number of parents contributing genes to each child (sexual reproduction) |
+| `evosim/genome.py` | Genes are 32-bit ints: source (sensor/inner), sink (inner/action), signed weight. Decoding, mutation, crossover, pruning of non-functional connections. |
+| `evosim/simulation.py` | Vectorised numpy simulation: sense → think (batched tanh network) → act → selection → breeding. |
+| `evosim/rules.py` | The mortality rules (data-driven; the UI is generated from this list). |
+| `evosim/world.py` | Map shapes, zone presets, distance fields. |
+| `evosim/scenarios.py` | Preset scenarios. |
+| `evosim/server.py` | Dependency-free HTTP server and JSON API. |
+| `web/` | The interface (plain JS and canvas, no build step). |
 
-Selection criteria (which cells survive) are defined in `Environment.enact_selection_pressure()` — swap in your own fitness function to evolve different behaviors.
+Each cell senses 17 things (age, noise, blockage, crowding, kinship, position, wall / hazard / safe-zone distance, nearest neighbour, distance walked, ...) and chooses among 13 actions (move in 9 ways, tune its own responsiveness and oscillator).
+
+### Changes from the original version
+- pygame/matplotlib/networkx replaced by the browser interface; only `numpy` is required.
+- Brain weights are now signed (the original only produced positive weights, so cells could never inhibit anything).
+- Simulation is vectorised across the population (roughly 20x faster).
+- The hard-coded selection in `Environment.enact_selection_pressure()` is now configurable rules.
