@@ -19,7 +19,7 @@ Options: `--port 8080`, `--host 0.0.0.0`, `--no-browser`. Run the tests with `py
 
 <p align="center"><img src="docs/setup.png" alt="Setup screen" width="80%"></p>
 
-- **Scenarios**: one-click presets (Escape to the right, Classic original rules, Mind the stripe, Herd instinct, ...).
+- **Scenarios**: one-click presets (Escape to the right, Classic original rules, Mind the stripe, Herd instinct, Social distancing, Fortress, ...).
 - **Population & time**: population size, generation length (steps), number of generations, seed.
 - **Genetics**: genes per genome, inner neurons, mutation rate.
 - **Reproduction** (asexual by default): asexual (clones) or sexual with 1-9 partners per child; gene-level or digit-level crossover; equal or random breeding.
@@ -51,7 +51,7 @@ When a run ends (or any time via *Final art*) you get a downloadable PNG with no
 | `evosim/server.py` | Dependency-free HTTP server and JSON API. |
 | `web/` | The interface (plain JS and canvas, no build step). |
 
-Each cell senses 17 things (age, noise, blockage, crowding, kinship, position, wall / hazard / safe-zone distance, nearest neighbour, distance walked, ...) and chooses among 13 actions (move in 9 ways, tune its own responsiveness and oscillator).
+Each cell senses 18 things (age, noise, blockage, crowding, kinship, position, wall / hazard / safe-zone distance, nearest neighbour, distance walked, smell, ...) and chooses among 14 actions (move in 9 ways, tune its own responsiveness and oscillator, spray pheromone). Pheromone is a shared layer that every cell can smell; it spreads and fades at a rate set by *Pheromone persistence*, and you can watch it with the *Pheromone* toggle during a run.
 
 ### Changes from the original version
 - pygame/matplotlib/networkx replaced by the browser interface; only `numpy` is required.

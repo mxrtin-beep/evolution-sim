@@ -95,7 +95,7 @@ function buildSetup() {
     select('Map shape', map.shape, SCHEMA.shapes, v => { map.shape = v; sizeChange(); }),
     select('Zone preset', map.zone, SCHEMA.zones, v => { map.zone = v; sizeChange(); }, 'Safe (green) and hazard (red) pixels used by the mortality rules.'),
     slider('w', 'Map width (px)', 32, 256, 8, '', map, sizeChange), slider('h', 'Map height (px)', 32, 256, 8, '', map, sizeChange),
-    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'))));
+    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'), sl('pher_decay'))));
 
   // rules
   const rl = h('div', {});
@@ -118,6 +118,7 @@ function applyScenario(s, rebuild) {
   cfg.rules = Object.fromEntries(SCHEMA.rules.map(r => [r.id, { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(s.rules[r.id] || {}) }]));
   for (const sd of SCHEMA.settings) cfg[sd.key] = (s.settings && s.settings[sd.key]) ?? sd.default;
   cfg.spawn = s.spawn || 'anywhere'; map.shape = s.shape; map.zone = s.zone; cfg.scenario = s.id;
+  [map.w, map.h] = s.size || [128, 128];
   persist();
   if (rebuild) { buildSetup(); loadMap(); }
 }
@@ -218,6 +219,13 @@ function renderWorld() {
   if (!lastFrame || !world) return;
   const g = world.getContext('2d'); g.drawImage(terrainCanvas, 0, 0);
   if ($('#t-spots').checked) g.drawImage(spotCanvas, 0, 0);
+  if ($('#t-pher').checked && lastFrame.pher) {
+    const bin = atob(lastFrame.pher);
+    for (let x = 0; x < map.w; x++) for (let y = 0; y < map.h; y++) {
+      const v = bin.charCodeAt(x * map.h + y); if (v < 6) continue;
+      g.fillStyle = `rgba(255,47,160,${Math.min(.85, v / 255 * 1.1)})`; g.fillRect(x * S, y * S, S, S);
+    }
+  }
   if ($('#t-cells').checked) {
     const f = lastFrame;
     for (let i = 0; i < f.x.length; i++) { g.fillStyle = cellColor(f.c[i]); g.fillRect(f.x[i] * S, f.y[i] * S, S, S); }
@@ -248,7 +256,7 @@ async function loop() {
   while (document.body.dataset.view === 'run') {
     const t0 = performance.now();
     try {
-      const f = await api('frame');
+      const f = await api('frame' + ($('#t-pher').checked ? '?pher=1' : ''));
       if (!f.active) break;
       lastFrame = f; updateChips(f); renderWorld();
       if (f.n_stats > stats.length) await pullStats();
@@ -311,6 +319,7 @@ function bindRunUI() {
   $('#spot-mode').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cause').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cells').onchange = renderWorld;
+  $('#t-pher').onchange = renderWorld;
   $('#clear-spots').onclick = () => { stats.forEach(s => s.deaths = []); spotCanvas.getContext('2d').clearRect(0, 0, spotCanvas.width, spotCanvas.height); renderWorld(); };
   world = $('#world');
   world.addEventListener('click', async e => {

@@ -16,6 +16,7 @@ SETTINGS = [
     ("n_genes", "Genes per genome", "Genetics", 1, 100, 1, 6, "Each gene wires one connection in the brain."),
     ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 2, "Hidden neurons available to the brain."),
     ("mutation_rate", "Mutation rate (per hex digit)", "Genetics", 0, 0.1, 0.0005, 0.005, "Chance that each of a gene's 8 hex digits is re-rolled in every child."),
+    ("pher_decay", "Pheromone persistence", "World", 0.5, 0.99, 0.01, 0.9, "Share of pheromone left after each step. Higher = longer-lasting trails."),
 ]
 
 DEFAULTS = {s[0]: s[6] for s in SETTINGS}
@@ -35,7 +36,7 @@ def normalize_config(raw):
             except (TypeError, ValueError):
                 continue
             v = min(max(v, lo), hi)
-            cfg[k] = v if k == "mutation_rate" else int(v)
+            cfg[k] = v if isinstance(DEFAULTS[k], float) else int(v)
     r = raw or {}
     if r.get("mode") in ("sexual", "asexual"):
         cfg["mode"] = r["mode"]
@@ -85,6 +86,8 @@ class Simulation:
         self.d_hazard = world.distance_to(self.terrain == world.HAZARD)
         self.d_safe = world.distance_to(self.terrain == world.SAFE)
 
+        self.wall = wall
+        self.pher = np.zeros((self.w, self.h), np.float32)
         self.spawn_cells = np.argwhere(world.spawn_mask(cfg["spawn"], self.terrain))
         self.n = int(min(cfg["population"], len(self.spawn_cells)))
 
@@ -139,6 +142,7 @@ class Simulation:
         self.act = np.zeros((n, gn.N_ACTIONS))
         self.sens = np.zeros((n, gn.N_SENSORS))
         self.age = 0
+        self.pher[:] = 0
         self.path_idx = self.rng.choice(n, size=min(n, PATH_CELLS), replace=False)
         self.path_every = max(1, self.steps // PATH_SAMPLES)
         self.path_buf = []
@@ -205,6 +209,7 @@ class Simulation:
         ring = np.where(hits, OFF_RING[None, :], PAD + 1).min(axis=1)
         S[:, 15] = np.where(ring > PAD, 1.0, (ring - 1) / PAD)
         S[:, 16] = np.clip(self.traveled[ia] / self.steps, 0, 1)
+        S[:, 17] = np.clip(self.pher[x, y] / 2.0, 0, 1)
         return S
 
     def _think(self, ia, sens):
@@ -242,15 +247,30 @@ class Simulation:
             act = self._think(ia, sens)
             fired = act > (0.5 * 0.75 ** self.resp[ia])[:, None]
             self._apply(ia, fired)
+            self._diffuse_pheromone()
             for rule_index, idx in self.rules.step(self, np.flatnonzero(self.alive), self.rng):
                 self._record_deaths(idx, rule_index)
         self.age += 1
         if self.age % self.path_every == 0:
             self._record_path()
 
+    def _diffuse_pheromone(self):
+        p = self.pher
+        if p.max() < 1e-3:
+            p[:] = 0
+            return
+        q = np.pad(p, 1)
+        near = (q[:-2, :-2] + q[:-2, 1:-1] + q[:-2, 2:] + q[1:-1, :-2] + q[1:-1, 2:] +
+                q[2:, :-2] + q[2:, 1:-1] + q[2:, 2:]) / 8.0
+        p[:] = np.minimum((0.7 * p + 0.3 * near) * self.cfg["pher_decay"], 5.0)
+        p[self.wall] = 0
+
     def _apply(self, ia, f):
         a = gn.ACTION_IDX
         f = f.astype(np.int32)
+        spray = ia[f[:, a["Spr"]] > 0]
+        if len(spray):
+            np.add.at(self.pher, (self.x[spray], self.y[spray]), 1.0)
         self.resp[ia] = np.clip(self.resp[ia] + f[:, a["R+"]] - f[:, a["R-"]], -3, 3)
         self.osc_delay[ia] = np.clip(self.osc_delay[ia] + f[:, a["O+"]] - f[:, a["O-"]], 2, 40)
         dx, dy = self.dx[ia], self.dy[ia]
@@ -342,12 +362,16 @@ class Simulation:
         return False
 
     # -------------------------------------------------------------- snapshots
-    def frame(self):
+    def frame(self, pher=False):
         ia = np.flatnonzero(self.alive)
-        return {
+        out = {
             "gen": self.gen, "step": self.age, "steps": self.steps, "alive": int(len(ia)), "n": self.n,
             "x": self.x[ia].tolist(), "y": self.y[ia].tolist(), "c": self.colors[ia].tolist(),
         }
+        if pher:
+            import base64
+            out["pher"] = base64.b64encode(np.clip(self.pher / 2.0 * 255, 0, 255).astype(np.uint8).tobytes()).decode()
+        return out
 
     def art(self):
         """Recorded cell movement (sampled generations) for the end-of-run artwork."""

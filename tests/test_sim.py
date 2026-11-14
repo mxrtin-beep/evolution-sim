@@ -90,6 +90,22 @@ class SimulationTests(unittest.TestCase):
         sim = run({"seed": 2, "population": 30, "steps": 5, "rules": {"random": {"enabled": True, "chance": 100}}}, t, 3)
         self.assertEqual(sim.status, "extinct")
 
+    def test_pheromone_spray_and_smell(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        sim = Simulation(normalize_config({"seed": 5, "population": 50, "steps": 20}), t)
+        ia = np.flatnonzero(sim.alive)
+        fired = np.zeros((len(ia), gn.N_ACTIONS), bool)
+        fired[:, gn.ACTION_IDX["Spr"]] = True
+        sim._apply(ia, fired)
+        self.assertGreater(sim.pher.sum(), 0)
+        smell = sim._sense(ia)[:, gn.SENSOR_IDX["Sml"]]
+        self.assertTrue((smell > 0).all())
+        sim.pher[:] = 0
+        for _ in range(60):
+            sim._diffuse_pheromone()
+        self.assertEqual(float(sim.pher.max()), 0.0)
+        self.assertIn("pher", sim.frame(pher=True))
+
     def test_art_payload(self):
         t = world.build_terrain("square", "none", 32, 32)
         sim = run({"seed": 2, "population": 30, "steps": 5}, t, 1)

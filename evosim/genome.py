@@ -28,6 +28,7 @@ SENSORS = [
     ("Sz", "Safe distance", "Distance to the nearest safe-zone pixel (0 = inside / none)."),
     ("Nn", "Nearest cell", "Distance to the closest other cell (1 = nobody within 6 px)."),
     ("Trv", "Distance walked", "Total distance travelled so far, relative to the generation length."),
+    ("Sml", "Smell", "Pheromone concentration where the cell stands. It fades and spreads, so it works as a trail."),
 ]
 
 ACTIONS = [
@@ -44,6 +45,7 @@ ACTIONS = [
     ("MXr", "Move west", "Step -X."),
     ("MYf", "Move south", "Step +Y."),
     ("MYr", "Move north", "Step -Y."),
+    ("Spr", "Spray pheromone", "Leave pheromone on the current square; every cell can smell it."),
 ]
 
 N_SENSORS = len(SENSORS)

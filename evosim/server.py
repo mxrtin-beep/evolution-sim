@@ -133,7 +133,7 @@ class Handler(BaseHTTPRequestHandler):
                 t = world.build_terrain(q.get("shape", "square"), q.get("zone", "none"), w, h)
                 return self._json({"w": w, "h": h, "data": b64_terrain(t)})
             if u.path == "/api/frame":
-                return self._frame()
+                return self._frame(q.get("pher") == "1")
             if u.path == "/api/stats":
                 return self._stats(int(q.get("since", 0)))
             if u.path == "/api/art":
@@ -191,12 +191,12 @@ class Handler(BaseHTTPRequestHandler):
             RUNNER.speed = min(max(float(body["value"]), 1), MAX_SPEED)
         return self._json({"ok": True})
 
-    def _frame(self):
+    def _frame(self, pher=False):
         with RUNNER.lock:
             sim = RUNNER.sim
             if sim is None:
                 return self._json({"active": False})
-            f = sim.frame()
+            f = sim.frame(pher)
             f.update(active=True, status=sim.status, paused=RUNNER.paused, speed=RUNNER.speed,
                      message=sim.message, n_stats=len(sim.stats), w=sim.w, h=sim.h)
             return self._json(f)
