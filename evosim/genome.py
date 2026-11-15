@@ -24,12 +24,9 @@ SENSORS = [
     ("Ly", "Y position", "Vertical position on the map (0-1)."),
     ("BD", "Wall distance", "Distance to the nearest wall or map edge."),
     ("Bs", "Bias", "Always on."),
-    ("Hz", "Hazard distance", "Distance to the nearest hazard pixel (1 = far or none)."),
-    ("Sz", "Safe distance", "Distance to the nearest safe-zone pixel (0 = inside / none)."),
     ("Nn", "Nearest cell", "Distance to the closest other cell (1 = nobody within 6 px)."),
     ("Trv", "Distance walked", "Total distance travelled so far, relative to the generation length."),
     ("Sml", "Smell", "Pheromone concentration where the cell stands. It fades and spreads, so it works as a trail."),
-    ("Hnd", "Hand nearby", "Your hand, seen through the webcam or mouse: 1 = under it, fading to 0 about 6 px away."),
 ]
 
 ACTIONS = [

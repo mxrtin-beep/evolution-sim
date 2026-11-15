@@ -283,7 +283,7 @@ def spawn_mask(kind, terrain):
         m = (np.abs(x) > 0.75) | (np.abs(y) > 0.75)
     else:
         m = np.ones((w, h), bool)
-    land = reachable_region(terrain) & (terrain != HAZARD)
+    land = reachable_region(terrain)
     ok = m & land
     if ok.sum() < 20:  # preset collides with the map; fall back to anywhere reachable
         ok = land

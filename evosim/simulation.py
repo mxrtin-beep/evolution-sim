@@ -18,8 +18,6 @@ SETTINGS = [
     ("mutation_rate", "Mutation rate (per hex digit)", "Genetics", 0, 0.1, 0.0005, 0.005, "Chance that each of a gene's 8 hex digits is re-rolled in every child."),
     ("pher_decay", "Pheromone persistence", "World", 0.5, 0.99, 0.01, 0.9, "Share of pheromone left after each step. Higher = longer-lasting trails."),
     ("death_pher", "Alarm pheromone on death", "World", 0, 5, 0.5, 0.0, "Cells that die mid-generation release this much pheromone where they fell."),
-    ("hazard_sight", "Hazard sense range (px)", "World", 1, 64, 1, 32.0, "The Hazard distance sense only sees this far. Short range = hazards are nearly invisible."),
-    ("safe_sight", "Safe-zone sense range (px)", "World", 1, 64, 1, 32.0, "How far the Safe distance sense can see."),
 ]
 
 DEFAULTS = {s[0]: s[6] for s in SETTINGS}
@@ -106,7 +104,6 @@ class Simulation:
         self.wall = wall
         self.hand = None            # raw hand mask from the webcam / mouse, (w, h) bool
         self.hand_zone = None       # hand mask grown by the rule's reach (None while no hand is visible)
-        self.handp = np.zeros((self.w + 2 * PAD, self.h + 2 * PAD), np.uint8)
         self.transition = {}
         self.transition_id = 0
         self.pher = np.zeros((self.w, self.h), np.float32)
@@ -145,10 +142,7 @@ class Simulation:
         self.terrain = np.where(self.wall, world.WALL, np.where(mask, world.HAZARD, np.where(self.terrain == world.SAFE, world.SAFE, world.OPEN))).astype(np.uint8)
         self.d_hazard = world.distance_to(mask)
         self.tver += 1
-        ok = self.spawn_ok & (self.d_hazard > 2.5)
-        if ok.sum() < self.n:  # too crowded with hazards: allow any reachable spot
-            ok = self.spawn_ok & ~mask
-        self.spawn_cells = np.argwhere(ok)
+        self.spawn_cells = np.argwhere(self.spawn_ok)   # cells may spawn inside hazards: they only die if they stay
 
     def _begin_generation(self):
         if self.shuffle and self.gen > 0:
@@ -226,52 +220,42 @@ class Simulation:
         n = len(ia)
         S = np.empty((n, gn.N_SENSORS))
         occp = self.occp
-        S[:, 0] = self.age / self.steps
-        S[:, 1] = self.rng.random(n)
+        K = gn.SENSOR_IDX
+        S[:, K["Age"]] = self.age / self.steps
+        S[:, K["Rnd"]] = self.rng.random(n)
         left = occp[x - dy + PAD, y + dx + PAD] != 0
         right = occp[x + dy + PAD, y - dx + PAD] != 0
-        S[:, 2] = left.astype(float) + right - 1.0
-        S[:, 3] = (self.age % self.osc_delay[ia] == 0)
+        S[:, K["Blr"]] = left.astype(float) + right - 1.0
+        S[:, K["Osc"]] = (self.age % self.osc_delay[ia] == 0)
         fx, fy = x + dx + PAD, y + dy + PAD
-        S[:, 4] = occp[fx, fy] != 0
+        S[:, K["Bfd"]] = occp[fx, fy] != 0
         hits = occp[x[:, None] + PAD + OFF_X[None, :], y[:, None] + PAD + OFF_Y[None, :]] > 0
-        S[:, 5] = hits[:, OFF_R2].sum(axis=1) / OFF_R2.sum()
-        S[:, 6], S[:, 7] = dx, dy
+        S[:, K["Pop"]] = hits[:, OFF_R2].sum(axis=1) / OFF_R2.sum()
+        S[:, K["LMx"]], S[:, K["LMy"]] = dx, dy
         # kinship of the cell straight ahead
         other = occp[fx, fy] - 1
         kin = np.zeros(n)
         has = other >= 0
         if has.any():
             kin[has] = gn.similarity(self.G[ia[has]], self.G[other[has]]) * 2 - 1
-        S[:, 8] = kin
-        S[:, 9] = x / max(self.w - 1, 1)
-        S[:, 10] = y / max(self.h - 1, 1)
-        S[:, 11] = np.clip(self.d_wall[x, y] / (min(self.w, self.h) / 2), 0, 1)
-        S[:, 12] = 1
-        S[:, 13] = np.clip(self.d_hazard[x, y] / self.cfg["hazard_sight"], 0, 1)
-        S[:, 14] = np.clip(self.d_safe[x, y] / self.cfg["safe_sight"], 0, 1) if self.has_safe else 0
+        S[:, K["Gen"]] = kin
+        S[:, K["Lx"]] = x / max(self.w - 1, 1)
+        S[:, K["Ly"]] = y / max(self.h - 1, 1)
+        S[:, K["BD"]] = np.clip(self.d_wall[x, y] / (min(self.w, self.h) / 2), 0, 1)
+        S[:, K["Bs"]] = 1
         ring = np.where(hits, OFF_RING[None, :], PAD + 1).min(axis=1)
-        S[:, 15] = np.where(ring > PAD, 1.0, (ring - 1) / PAD)
-        S[:, 16] = np.clip(self.traveled[ia] / self.steps, 0, 1)
-        S[:, 17] = np.clip(self.pher[x, y] / 2.0, 0, 1)
-        S[:, 18] = self._hand_sense(x, y, hits) if self.hand_zone is not None else 0
+        S[:, K["Nn"]] = np.where(ring > PAD, 1.0, (ring - 1) / PAD)
+        S[:, K["Trv"]] = np.clip(self.traveled[ia] / self.steps, 0, 1)
+        S[:, K["Sml"]] = np.clip(self.pher[x, y] / 2.0, 0, 1)
         return S
-
-    def _hand_sense(self, x, y, _unused):
-        near = self.handp[x[:, None] + PAD + OFF_X[None, :], y[:, None] + PAD + OFF_Y[None, :]] > 0
-        ring = np.where(near, OFF_RING[None, :], PAD + 1).min(axis=1)
-        ring = np.where(self.handp[x + PAD, y + PAD] > 0, 0, ring)
-        return np.where(ring > PAD, 0.0, (PAD + 1 - ring) / (PAD + 1))
 
     def set_hands(self, mask):
         """Update the hand mask (bool (w, h)); an empty mask means no hand is visible."""
         mask = np.asarray(mask, bool)
         if mask.shape != (self.w, self.h) or not mask.any():
             self.hand, self.hand_zone = None, None
-            self.handp[:] = 0
             return
         self.hand = mask
-        self.handp[PAD:-PAD, PAD:-PAD] = mask
         reach = 0
         for rid, c in self.rules.active:
             if rid == "hands":

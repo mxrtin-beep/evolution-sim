@@ -17,8 +17,9 @@ def _num(key, label, lo, hi, step, default, hint=""):
 
 RULES = [
     {"id": "hazard", "name": "Hazard pixels", "color": "#ff2d2d",
-     "desc": "Cells die when they are within R pixels of a red hazard pixel.",
-     "params": [_num("radius", "Kill distance R (px)", 0, 40, 1, 2), dict(WHEN, default="step")]},
+     "desc": "At the end of the generation, cells within R pixels of a red hazard pixel die. "
+             "Cells may spawn inside a hazard; they only die if they are still there when time runs out.",
+     "params": [_num("radius", "Kill distance R (px)", 0, 40, 1, 1)]},
     {"id": "safe", "name": "Safe zone", "color": "#00c34e",
      "desc": "At the end of the generation, cells that are further than R pixels from a green safe pixel die.",
      "params": [_num("radius", "Allowed distance R (px)", 0, 60, 1, 0)]},
@@ -84,9 +85,7 @@ class RuleSet:
         x, y = ctx.x[ia], ctx.y[ia]
         for rid, c in self.active:
             hit = None
-            if rid == "hazard" and c["when"] == "step" and ctx.has_hazard:
-                hit = ctx.d_hazard[x, y] <= float(c["radius"])
-            elif rid == "walls" and c["when"] == "step":
+            if rid == "walls" and c["when"] == "step":
                 hit = ctx.d_wall[x, y] <= float(c["radius"])
             elif rid == "hands" and c["mode"] == "inside" and c["when"] == "step" and ctx.hand_zone is not None:
                 hit = ctx.hand_zone[x, y]
@@ -106,7 +105,7 @@ class RuleSet:
         x, y = ctx.x[ia], ctx.y[ia]
         for rid, c in self.active:
             hit = None
-            if rid == "hazard" and c["when"] == "end" and ctx.has_hazard:
+            if rid == "hazard" and ctx.has_hazard:
                 hit = ctx.d_hazard[x, y] <= float(c["radius"])
             elif rid == "safe" and ctx.has_safe:
                 hit = ctx.d_safe[x, y] > float(c["radius"])

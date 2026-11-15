@@ -117,7 +117,7 @@ class SimulationTests(unittest.TestCase):
     def test_moving_hazards_and_alarm_pheromone(self):
         t = world.build_terrain("square", "hazard_spots", 48, 48)
         rules = defaults()
-        rules["hazard"].update(enabled=True, radius=1, when="step")
+        rules["hazard"].update(enabled=True, radius=1)
         sim = Simulation(normalize_config({"seed": 3, "steps": 10, "hazard_shuffle": True, "death_pher": 2, "rules": rules}), t)
         n_haz, v0, first = int((sim.terrain == world.HAZARD).sum()), sim.tver, sim.terrain.copy()
         while sim.gen < 2:
@@ -126,19 +126,15 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(int((sim.terrain == world.HAZARD).sum()), n_haz)
         self.assertFalse((sim.terrain == first).all())
 
-    def test_hands_rule_and_sense(self):
+    def test_hands_rule(self):
         t = world.build_terrain("square", "none", 40, 40)
         rules = defaults()
         rules["hands"].update(enabled=True, mode="inside", radius=1, when="step")
         sim = Simulation(normalize_config({"seed": 3, "steps": 10, "population": 60, "rules": rules}), t)
-        ia = np.flatnonzero(sim.alive)
-        self.assertTrue((sim._sense(ia)[:, gn.SENSOR_IDX["Hnd"]] == 0).all())   # no hand yet
+        self.assertIsNone(sim.hand_zone)                                        # no hand yet
         mask = np.zeros((40, 40), bool)
         mask[:20, :] = True                                                    # left half is a hand
         sim.set_hands(mask)
-        on = sim.x[ia] < 20
-        s = sim._sense(ia)[:, gn.SENSOR_IDX["Hnd"]]
-        self.assertTrue((s[on] == 1).all())
         sim.advance()
         self.assertFalse((sim.alive & (sim.x < 19)).any())                       # cells under the hand died
         sim.set_hands(np.zeros((40, 40), bool))
@@ -198,6 +194,27 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(art["w"], 32)
         self.assertEqual(len(art["gens"]), 1)
         self.assertGreater(art["gens"][0]["t"], 1)
+
+
+class HazardTimingTests(unittest.TestCase):
+    def test_hazard_only_kills_at_end_and_spawning_inside_is_fine(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        t[:20, :] = world.HAZARD                            # left half hazard
+        rules = defaults()
+        rules["hazard"].update(enabled=True, radius=0)
+        sim = Simulation(normalize_config({"seed": 3, "steps": 20, "population": 80, "rules": rules}), t)
+        self.assertTrue((sim.x < 20).any())                 # some cells spawn inside the hazard
+        for _ in range(19):                                 # ...and survive while the generation runs
+            sim.advance()
+        self.assertEqual(int(sim.alive.sum()), 80)
+        sim.advance()                                       # generation ends
+        s = sim.stats[0]
+        self.assertGreater(s["causes"].get("hazard", 0), 0)
+        self.assertEqual(s["survivors"], 80 - s["causes"]["hazard"])
+
+    def test_removed_senses_are_gone(self):
+        keys = {k for k, _, _ in gn.SENSORS}
+        self.assertFalse(keys & {"Hz", "Sz", "Hnd"})
 
 
 if __name__ == "__main__":
