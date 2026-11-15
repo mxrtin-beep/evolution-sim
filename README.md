@@ -32,7 +32,7 @@ Options: `--port 8080`, `--host 0.0.0.0`, `--no-browser`. Run the tests with `py
 - **Live world**, one pixel per cell in its own genome colour, with a speed slider (up to "max"), pause (`Space`), and click-a-cell to inspect it.
 - **Death spots** toggle: translucent dots where cells died (all generations / last 10 / last one), optionally coloured by cause of death.
 - **Last generation's deaths** (checkbox): little dark-red translucent spots showing where the previous generation died, while the next one is running.
-- **Live charts** of death rate (% dying per generation) and genetic diversity, with hover read-outs. *Distinct genes* is the % of gene slots in the population holding a unique value; *genomes unlike the most common one* is the % of cells whose genome differs from the most common genome.
+- **Live charts** of death rate (% dying per generation) and genetic diversity, with hover read-outs.  Genetic diversity is the percent of genomes unlike the most common genome.
 - **Brain evolution**: one brain drawn for the whole population. Every connection's opacity is the share of cells carrying it, so common wiring is solid and rare wiring fades; blue excites, red inhibits. Scrub or replay through the generations to watch the brain evolve, or select a single cell to see its own brain with live neuron activations.
 
 - **Generation changeover** (checkbox): the run pauses for a few seconds at the end of each generation to show who died (crosses in their cause-of-death colour), who survived, and lines from each parent to the new cells that spawn in.

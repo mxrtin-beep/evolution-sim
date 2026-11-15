@@ -375,7 +375,6 @@ class Simulation:
             "gen": self.gen, "pop": n0, "survivors": int(len(survivors)),
             "death_rate": round(100.0 * (n0 - len(survivors)) / n0, 2),
             "diversity": round(gn.diversity(self.G), 2),
-            "minority": round(gn.percent_off_mode(self.G), 2),
             "causes": dict(self.cause_counts),
             "deaths": deaths.astype(int).ravel().tolist(),
         }

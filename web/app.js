@@ -35,7 +35,7 @@ async function init() {
   await loadMap();
   brainView = new BrainView($('#brain'), $('#brain-tip'), SCHEMA);
   deathChart = new LineChart($('#chart-death'), [{ key: 'death_rate', label: 'Death rate', color: '#ff2d2d' }], {});
-  divChart = new LineChart($('#chart-div'), [{ key: 'diversity', label: 'Distinct genes', color: '#1f5bff' }, { key: 'minority', label: 'Genomes unlike the most common one', color: '#ff2fa0' }], {});
+  divChart = new LineChart($('#chart-div'), [{ key: 'diversity', label: 'Genetic diversity', color: '#1f5bff' }], {});
   bindRunUI();
   // resume an in-progress run (e.g. after a page reload)
   const f = await api('frame');
@@ -415,7 +415,7 @@ function updateChips(f) {
   add('Generation', f.gen + 1 + (cfg.max_gens ? ' / ' + cfg.max_gens : ''));
   el.append(h('span', { class: 'chip' }, 'Step', h('b', {}, `${f.step}/${f.steps}`), h('span', { class: 'progress' }, h('i', { style: `width:${100 * f.step / f.steps}%` }))));
   add('Alive', `${f.alive} / ${f.n}`);
-  if (last) { add('Last death rate', last.death_rate.toFixed(1) + '%'); add('Diversity', last.diversity.toFixed(1) + '%'); }
+  if (last) { add('Last death rate', last.death_rate.toFixed(1) + '%'); add('Genetic diversity', last.diversity.toFixed(1) + '%'); }
 }
 
 /* ============================================================ run controls */

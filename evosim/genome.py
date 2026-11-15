@@ -171,14 +171,7 @@ def similarity(a, b):
 
 
 def diversity(genomes):
-    """Percent of gene slots holding a distinct gene value (original project's metric)."""
-    if genomes.size == 0:
-        return 0.0
-    return 100.0 * len(np.unique(genomes)) / genomes.size
-
-
-def percent_off_mode(genomes):
-    """Percent of cells whose genome differs from the most common genome."""
+    """Genetic diversity: percent of genomes unlike the most common genome."""
     if len(genomes) == 0:
         return 0.0
     _, counts = np.unique(genomes, axis=0, return_counts=True)
