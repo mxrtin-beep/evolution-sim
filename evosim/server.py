@@ -166,6 +166,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         u = urlparse(self.path)
         try:
+            if u.path == "/api/hands_raw":      # binary mask, index = x * h + y; avoids JSON/base64 overhead
+                q = {k: v[0] for k, v in parse_qs(u.query).items()}
+                raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                w, h = int(q["w"]), int(q["h"])
+                with RUNNER.lock:
+                    sim = RUNNER.sim
+                    if sim is not None:
+                        ok = (w, h) == (sim.w, sim.h) and len(raw) == w * h
+                        sim.set_hands(np.frombuffer(raw, np.uint8).reshape(w, h) > 0 if ok else np.zeros((sim.w, sim.h), bool))
+                return self._json({"ok": True})
             body = self._body()
             if u.path == "/api/start":
                 return self._start(body)
