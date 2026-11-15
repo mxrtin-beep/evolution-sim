@@ -99,7 +99,7 @@ function buildSetup() {
     select('Map shape', map.shape, SCHEMA.shapes, v => { map.shape = v; sizeChange(); }),
     select('Zone preset', map.zone, SCHEMA.zones, v => { map.zone = v; sizeChange(); }, 'Safe (green) and hazard (red) pixels used by the mortality rules.'),
     slider('w', 'Map width (px)', 32, 256, 8, '', map, sizeChange), slider('h', 'Map height (px)', 32, 256, 8, '', map, sizeChange),
-    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'), sl('pher_decay'), sl('death_pher'),
+    select('Spawn area', cfg.spawn, SCHEMA.spawns, v => { cfg.spawn = v; persist(); }, 'Where each generation starts.'), sl('pher_decay'),
     h('div', { class: 'field' }, h('label', {}, 'Moving hazards'),
       h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!cfg.hazard_shuffle, onchange: e => { cfg.hazard_shuffle = e.target.checked; persist(); } }), 'Slide the hazard pattern to a new spot every generation'),
       h('div', { class: 'hint' }, 'Stops cells memorising where the hazards are from their X/Y position.')))));
@@ -117,7 +117,7 @@ function buildSetup() {
         : slider(p.key, p.label, p.min, p.max, p.step, p.hint, c, warn))));
     el.append(head, body); rl.append(el);
   }
-  root.append(card('Mortality conditions', h('div', { class: 'hint', style: 'margin-bottom:10px' }, 'A cell dies as soon as any enabled rule says so. Combine as many as you like.'), rl));
+  root.append(card('Mortality conditions', h('div', { class: 'hint', style: 'margin-bottom:10px' }, 'Everyone lives through the whole generation; at its end, a cell dies if any enabled rule says so. Combine as many as you like.'), rl));
   refreshScenarioButtons();
 }
 

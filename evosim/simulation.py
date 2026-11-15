@@ -17,7 +17,6 @@ SETTINGS = [
     ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 2, "Hidden neurons available to the brain."),
     ("mutation_rate", "Mutation rate (per hex digit)", "Genetics", 0, 0.1, 0.0005, 0.005, "Chance that each of a gene's 8 hex digits is re-rolled in every child."),
     ("pher_decay", "Pheromone persistence", "World", 0.5, 0.99, 0.01, 0.9, "Share of pheromone left after each step. Higher = longer-lasting trails."),
-    ("death_pher", "Alarm pheromone on death", "World", 0, 5, 0.5, 0.0, "Cells that die mid-generation release this much pheromone where they fell."),
 ]
 
 DEFAULTS = {s[0]: s[6] for s in SETTINGS}
@@ -288,8 +287,6 @@ class Simulation:
         if len(idx) == 0:
             return
         self.alive[idx] = False
-        if self.cfg["death_pher"] > 0:  # alarm signal where the cell fell
-            np.add.at(self.pher, (self.x[idx], self.y[idx]), np.float32(self.cfg["death_pher"]))
         self.cause[idx] = rule_index
         self.occp[self.x[idx] + PAD, self.y[idx] + PAD] = 0
         rid = RULES[rule_index]["id"]
@@ -305,8 +302,6 @@ class Simulation:
             fired = act > (0.5 * 0.75 ** self.resp[ia])[:, None]
             self._apply(ia, fired)
             self._diffuse_pheromone()
-            for rule_index, idx in self.rules.step(self, np.flatnonzero(self.alive), self.rng):
-                self._record_deaths(idx, rule_index)
         self.age += 1
         if self.age % self.path_every == 0:
             self._record_path()
