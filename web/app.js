@@ -22,14 +22,14 @@ const TERRAIN_COLORS = ['#ffffff', '#111111', '#ffc4bf', '#bff0cf'];
 /* ============================================================== setup UI */
 async function init() {
   SCHEMA = await api('schema');
-  const saved = store.get('evosim.cfg3', null);
+  const saved = store.get('evosim.cfg4', null);
   cfg = { mode: 'asexual', partners: 1, crossover: 'gene', offspring: 'equal', spawn: 'anywhere', seed: '', rules: {}, ...(saved || {}) };
   for (const s of SCHEMA.settings) if (cfg[s.key] == null) cfg[s.key] = s.default;
   for (const k of ['disabled_sensors', 'disabled_inner', 'disabled_actions']) if (!Array.isArray(cfg[k])) cfg[k] = [];
   for (const r of SCHEMA.rules) {
     cfg.rules[r.id] = { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(cfg.rules[r.id] || {}) };
   }
-  map = { shape: 'square', zone: 'safe_right', w: 128, h: 128, ...(store.get('evosim.map3', {})), terrain: null };
+  map = { shape: 'square', zone: 'safe_right', w: 128, h: 128, ...(store.get('evosim.map4', {})), terrain: null };
   if (!saved) applyScenario(SCHEMA.scenarios[0], false);
   buildSetup();
   await loadMap();
@@ -57,7 +57,7 @@ function select(label, value, options, onchange, hint) {
   const s = h('select', { onchange: () => onchange(s.value) }, options.map(o => h('option', { value: o.id ?? o[0], selected: (o.id ?? o[0]) === value }, o.name ?? o[1])));
   return h('div', { class: 'field' }, h('label', {}, label), s, hint ? h('div', { class: 'hint' }, hint) : null);
 }
-const persist = () => { store.set('evosim.cfg3', cfg); store.set('evosim.map3', { shape: map.shape, zone: map.zone, w: map.w, h: map.h }); };
+const persist = () => { store.set('evosim.cfg4', cfg); store.set('evosim.map4', { shape: map.shape, zone: map.zone, w: map.w, h: map.h }); };
 
 function card(title, ...body) { return h('div', { class: 'card' }, h('h3', {}, title), ...body); }
 

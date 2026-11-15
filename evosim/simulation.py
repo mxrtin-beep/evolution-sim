@@ -11,7 +11,7 @@ PAD = 6  # neighbourhood lookup radius (also the padding around the occupancy gr
 SETTINGS = [
     # key, label, group, min, max, step, default, hint
     ("population", "Population size", "Population", 10, 2000, 10, 100, "Cells alive at the start of every generation."),
-    ("steps", "Generation length (steps)", "Population", 20, 1000, 10, 100, "How many steps the cells get to act before selection."),
+    ("steps", "Generation length (steps)", "Population", 20, 1000, 10, 200, "How many steps the cells get to act before selection."),
     ("max_gens", "Generations to run (0 = forever)", "Population", 0, 10000, 10, 500, ""),
     ("n_genes", "Genes per genome", "Genetics", 1, 100, 1, 6, "Each gene wires one connection in the brain."),
     ("n_inner", "Inner neurons", "Genetics", 0, 16, 1, 2, "Hidden neurons available to the brain."),
