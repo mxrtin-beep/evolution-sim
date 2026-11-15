@@ -24,12 +24,14 @@ Options: `--port 8080`, `--host 0.0.0.0`, `--no-browser`. Run the tests with `py
 - **Genetics**: genes per genome, inner neurons, mutation rate.
 - **Reproduction** (asexual by default): asexual (clones) or sexual with 1-9 partners per child; gene-level or digit-level crossover; equal or random breeding.
 - **World**: 10 map shapes (square, circle, ring, diamond, cross, two chambers, hourglass, obstacle field, islands, spiral), any size, a spawn area, and zone presets. Paint your own walls / hazards / safe zones on the preview.
+- **Brain neurons**: a brain-shaped checklist (senses, inner neurons, actions) where you can untick any neuron to remove it from every cell. Genes are re-mapped onto the neurons that remain, so no genes are wasted; disabled neurons show as dashed circles in the live brain view.
 - **Mortality conditions** (combine any): hazard pixels within R px, safe zone, wall/edge proximity, neighbours in range (too few *or* too many), distance travelled (laziness / energy budget), net displacement from spawn, and random death. A cell dies as soon as any enabled rule says so.
 
 **2. During the run**
 
 - **Live world**, one pixel per cell in its own genome colour, with a speed slider (up to "max"), pause (`Space`), and click-a-cell to inspect it.
 - **Death spots** toggle: translucent dots where cells died (all generations / last 10 / last one), optionally coloured by cause of death.
+- **Last generation's deaths** (checkbox): little dark-red translucent spots showing where the previous generation died, while the next one is running.
 - **Live charts** of death rate (% dying per generation) and genetic diversity, with hover read-outs. *Distinct genes* is the % of gene slots in the population holding a unique value; *genomes unlike the most common one* is the % of cells whose genome differs from the most common genome.
 - **Brain evolution**: one brain drawn for the whole population. Every connection's opacity is the share of cells carrying it, so common wiring is solid and rare wiring fades; blue excites, red inhibits. Scrub or replay through the generations to watch the brain evolve, or select a single cell to see its own brain with live neuron activations.
 

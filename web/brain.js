@@ -5,7 +5,7 @@ class BrainView {
     this.c = canvas; this.tip = tip;
     this.sensors = schema.sensors; this.actions = schema.actions;
     this.edges = []; this.nInner = 4; this.minFreq = 0.03; this.hideUnused = false;
-    this.activation = null; this.fired = null; this.cellMode = false; this.hoverNode = -1; this.cellColor = null;
+    this.off = []; this.activation = null; this.fired = null; this.cellMode = false; this.hoverNode = -1; this.cellColor = null;
     canvas.addEventListener('mousemove', e => this.onMove(e));
     canvas.addEventListener('mouseleave', () => { this.hoverNode = -1; tip.style.display = 'none'; this.draw(); });
     new ResizeObserver(() => this.draw()).observe(canvas);
@@ -68,8 +68,16 @@ class BrainView {
     });
 
     const colors = { sensor: '255,212,0', inner: '0,195,78', action: '255,45,45' };
+    const off = new Set(this.off || []);
     pos.forEach((p, i) => {
       const n = this.nodeInfo(i), used = part[i] > 0;
+      if (off.has(i)) {   // switched off in the settings: hollow dashed circle, greyed label
+        g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.setLineDash([3, 3]); g.lineWidth = 1.2; g.strokeStyle = 'rgba(17,17,17,.4)'; g.stroke(); g.setLineDash([]);
+        g.font = '12px "Helvetica Neue",Helvetica,Arial,sans-serif'; g.textBaseline = 'middle'; g.fillStyle = '#b4b1a6';
+        if (n.kind === 'sensor') { g.textAlign = 'right'; g.fillText(n.name, p.x - p.r - 8, p.y); }
+        else if (n.kind === 'action') { g.textAlign = 'left'; g.fillText(n.name, p.x + p.r + 8, p.y); }
+        return;
+      }
       if (this.hideUnused && !used && !this.cellMode) return;
       const act = this.activation ? Math.min(1, Math.abs(this.activation[i])) : 0;
       let fill = this.cellMode ? (used ? 0.35 + 0.65 * act : 0.12) : (used ? 0.3 + 0.7 * part[i] : 0.12);

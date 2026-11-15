@@ -110,3 +110,20 @@ input[type=checkbox]{accent-color:var(--ink);width:15px;height:15px}
 #hand-status.alert{color:var(--ink);background:var(--yellow);padding:1px 6px;font-weight:700}
 .trans-note{margin-bottom:8px;padding:5px 10px;border:2px solid var(--ink);background:var(--paper);font-weight:700}
 #cam{position:absolute;right:8px;bottom:8px;width:150px;border:2px solid var(--ink);transform:scaleX(-1);background:#000}
+
+/* neuron toggles */
+.neurons{display:grid;grid-template-columns:1fr 130px 1fr;gap:0 18px;align-items:start;background:#fff;border:2px solid var(--ink);padding:10px 14px}
+.ncol{display:flex;flex-direction:column;gap:3px}
+.nhead{font-size:11px;font-weight:700;letter-spacing:.06em;text-align:center;margin-bottom:4px}
+.nbulk{font-size:11px;color:var(--muted);text-align:center;margin-bottom:6px}
+.nbulk a{color:var(--ink);cursor:pointer;text-decoration:underline}
+.nrow{display:flex;align-items:center;gap:7px;min-height:22px}
+.nrow.s{justify-content:flex-end;text-align:right}
+.nrow.i{justify-content:center}
+.nrow input{margin:0}
+.nrow .nl{font-size:13px}
+.nrow.off .nl{color:#aaa7a0;text-decoration:line-through}
+.ncirc{width:16px;height:16px;border-radius:50%;border:2px solid var(--ink);flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-style:normal}
+.ncirc.sensor{background:var(--yellow)}.ncirc.inner{background:var(--green)}.ncirc.action{background:var(--red)}
+.nrow.off .ncirc{background:#fff;border-style:dashed;opacity:.5}
+@media (max-width:700px){.neurons{grid-template-columns:1fr}}

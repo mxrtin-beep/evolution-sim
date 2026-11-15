@@ -25,6 +25,7 @@ async function init() {
   const saved = store.get('evosim.cfg2', null);
   cfg = { mode: 'asexual', partners: 1, crossover: 'gene', offspring: 'equal', spawn: 'anywhere', seed: '', rules: {}, ...(saved || {}) };
   for (const s of SCHEMA.settings) if (cfg[s.key] == null) cfg[s.key] = s.default;
+  for (const k of ['disabled_sensors', 'disabled_inner', 'disabled_actions']) if (!Array.isArray(cfg[k])) cfg[k] = [];
   for (const r of SCHEMA.rules) {
     cfg.rules[r.id] = { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(cfg.rules[r.id] || {}) };
   }
@@ -73,7 +74,10 @@ function buildSetup() {
   root.append(card('Population & time', h('div', { class: 'form-grid' }, sl('population'), sl('steps'), sl('max_gens'),
     h('div', { class: 'field' }, h('label', {}, 'Random seed'), h('input', { type: 'number', placeholder: 'random', value: cfg.seed, onchange: e => { cfg.seed = e.target.value; persist(); } }), h('div', { class: 'hint' }, 'Fill in for reproducible runs.')))));
 
-  root.append(card('Genetics', h('div', { class: 'form-grid' }, sl('n_genes'), sl('n_inner'), sl('mutation_rate'))));
+  const nCard = neuronCard();
+  root.append(card('Genetics', h('div', { class: 'form-grid' }, sl('n_genes'),
+    slider('n_inner', S.n_inner.label, S.n_inner.min, S.n_inner.max, S.n_inner.step, S.n_inner.hint, cfg, nCard.render), sl('mutation_rate'))));
+  root.append(card('Brain neurons', h('div', { class: 'hint', style: 'margin-bottom:8px' }, 'Untick a neuron to remove it from every cell\'s brain. Genes are re-mapped onto the neurons that remain.'), nCard.el));
 
   const partners = slider('partners', 'Partners per child', 1, 9, 1, 'Each child mixes genes from itself plus this many random mates.');
   const repro = h('div', {}, );
@@ -117,10 +121,44 @@ function buildSetup() {
   refreshScenarioButtons();
 }
 
+/* a brain-shaped checklist: senses on the left, inner neurons in the middle, actions on the right */
+function neuronCard() {
+  const el = h('div', { class: 'neurons' });
+  const render = () => {
+    el.innerHTML = '';
+    const toggle = (list, key, on) => { const i = list.indexOf(key); if (on && i >= 0) list.splice(i, 1); if (!on && i < 0) list.push(key); persist(); render(); };
+    const row = (cls, kind, key, text, desc, list, label) => {
+      const on = !list.includes(key);
+      const cb = h('input', { type: 'checkbox', checked: on, title: 'Switch this neuron on or off', onchange: e => toggle(list, key, e.target.checked) });
+      const circ = h('i', { class: 'ncirc ' + kind }, label || '');
+      const nl = h('span', { class: 'nl', title: desc }, text || '');
+      const kids = cls === 's' ? [nl, circ, cb] : cls === 'a' ? [cb, circ, nl] : [circ, cb];
+      return h('div', { class: 'nrow ' + cls + (on ? '' : ' off') }, ...kids);
+    };
+    const bulk = (name, list, keys) => h('div', { class: 'nbulk' },
+      h('a', { onclick: () => { list.length = 0; persist(); render(); } }, 'all on'), ' · ',
+      h('a', { onclick: () => { list.length = 0; list.push(...keys); persist(); render(); } }, 'all off'));
+    const inner = [...Array(cfg.n_inner).keys()];
+    cfg.disabled_inner = cfg.disabled_inner.filter(i => i < cfg.n_inner);
+    el.append(
+      h('div', { class: 'ncol' }, h('div', { class: 'nhead' }, 'SENSES'), bulk('s', cfg.disabled_sensors, SCHEMA.sensors.map(s => s.key)),
+        ...SCHEMA.sensors.map(s => row('s', 'sensor', s.key, s.name, s.desc, cfg.disabled_sensors))),
+      h('div', { class: 'ncol' }, h('div', { class: 'nhead' }, 'INNER'), bulk('i', cfg.disabled_inner, inner),
+        ...(inner.length ? inner.map(i => row('i', 'inner', i, '', 'Inner neuron ' + (i + 1), cfg.disabled_inner, String(i + 1))) : [h('div', { class: 'hint center' }, 'none')])),
+      h('div', { class: 'ncol' }, h('div', { class: 'nhead' }, 'ACTIONS'), bulk('a', cfg.disabled_actions, SCHEMA.actions.map(a => a.key)),
+        ...SCHEMA.actions.map(a => row('a', 'action', a.key, a.name, a.desc, cfg.disabled_actions))));
+    if (cfg.disabled_sensors.length === SCHEMA.sensors.length || cfg.disabled_actions.length === SCHEMA.actions.length)
+      el.append(h('div', { class: 'warn', style: 'grid-column:1/-1;margin-top:6px' }, '⚠ With every sense or every action off, cells cannot do anything.'));
+  };
+  render();
+  return { el, render };
+}
+
 function applyScenario(s, rebuild) {
   cfg.rules = Object.fromEntries(SCHEMA.rules.map(r => [r.id, { enabled: false, ...Object.fromEntries(r.params.map(p => [p.key, p.default])), ...(s.rules[r.id] || {}) }]));
   for (const sd of SCHEMA.settings) cfg[sd.key] = (s.settings && s.settings[sd.key]) ?? sd.default;
   cfg.spawn = s.spawn || 'anywhere'; map.shape = s.shape; map.zone = s.zone; cfg.scenario = s.id; cfg.hazard_shuffle = !!s.shuffle;
+  cfg.disabled_sensors = []; cfg.disabled_inner = []; cfg.disabled_actions = [];
   [map.w, map.h] = s.size || [128, 128];
   persist();
   if (rebuild) { buildSetup(); loadMap(); }
@@ -180,7 +218,7 @@ function warn() {
 let brainView, deathChart, divChart;
 let polling = false, stats = [], world = null, spotCanvas = null, terrainCanvas = null, S = 5;
 let selected = null, brainGen = 0, brainGens = 1, brainLive = true, brainMode = 'pop', brainCache = {}, lastFrame = null, brainPlay = null;
-let tickBusy = false, statsBusy = false, artShown = false, lastTver = -1, lastTrid = 0, trAnim = null;
+let tickBusy = false, statsBusy = false, artShown = false, lastTver = -1, lastTrid = 0, trAnim = null, prevCanvas = null;
 
 function b64(u8) { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); }
 
@@ -203,6 +241,7 @@ function enterRun(resumed) {
   world = $('#world'); world.width = map.w * S; world.height = map.h * S;
   terrainCanvas = document.createElement('canvas'); terrainCanvas.width = world.width; terrainCanvas.height = world.height;
   spotCanvas = document.createElement('canvas'); spotCanvas.width = world.width; spotCanvas.height = world.height;
+  prevCanvas = document.createElement('canvas'); prevCanvas.width = world.width; prevCanvas.height = world.height;
   drawTerrain();
   $('#banner').hidden = true; $('#btn-play').textContent = 'Pause';
   deathChart.setData([]); divChart.setData([]); $('#cause-chips').innerHTML = '';
@@ -224,6 +263,7 @@ function renderWorld() {
   if (!lastFrame || !world) return;
   const g = world.getContext('2d'); g.drawImage(terrainCanvas, 0, 0);
   if ($('#t-spots').checked) g.drawImage(spotCanvas, 0, 0);
+  if ($('#t-prev').checked) g.drawImage(prevCanvas, 0, 0);
   if ($('#t-pher').checked && lastFrame.pher) {
     const bin = atob(lastFrame.pher);
     for (let x = 0; x < map.w; x++) for (let y = 0; y < map.h; y++) {
@@ -293,6 +333,15 @@ function drawTransition(g, a) {
   }
 }
 
+/* where the previous generation died: little dark-red translucent spots */
+function drawPrevDeaths() {
+  const g = prevCanvas.getContext('2d'); g.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
+  const s = stats[stats.length - 1]; if (!s) return;
+  const size = Math.max(2, Math.round(S * .6)), off = (S - size) / 2;
+  g.fillStyle = 'rgba(120,0,0,0.5)';
+  for (let i = 0; i < s.deaths.length; i += 3) g.fillRect(s.deaths[i] * S + off, s.deaths[i + 1] * S + off, size, size);
+}
+
 /* death spots */
 const causeColor = {}; 
 function drawSpots() {
@@ -350,6 +399,7 @@ async function pullStats() {
     const last = stats[stats.length - 1];
     if (last) showCauses(last);
     if ($('#spot-mode').value !== 'all') drawSpots();
+    drawPrevDeaths();
   } finally { statsBusy = false; }
 }
 function paintIncremental(s) { if ($('#spot-mode').value === 'all') paintDeaths(spotCanvas.getContext('2d'), s.deaths, $('#t-cause').checked); }
@@ -386,6 +436,7 @@ function bindRunUI() {
   $('#spot-mode').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cause').onchange = () => { drawSpots(); renderWorld(); };
   $('#t-cells').onchange = renderWorld;
+  $('#t-prev').onchange = () => { drawPrevDeaths(); renderWorld(); };
   $('#t-trans').onchange = async e => { trAnim = null; $('#trans-note').hidden = true; await api('control', { action: 'transition', value: e.target.checked }); };
   $('#hand-mouse').onclick = () => toggleHand('mouse');
   $('#hand-cam').onclick = () => toggleHand('webcam');
@@ -443,7 +494,7 @@ async function updateBrain(f, force) {
     if (b.gone) { selected = null; return; }
     selected.pos = [b.x, b.y];
     $('#brain-sub').innerHTML = `Cell #${selected.id} ${b.alive ? '' : '(dead)'}: every connection is fully opaque because it belongs to just this one genome.`;
-    brainView.set({ edges: b.edges, activation: b.activation, fired: b.fired, cellMode: true, minFreq: 0 });
+    brainView.set({ edges: b.edges, activation: b.activation, fired: b.fired, cellMode: true, minFreq: 0, off: b.off || [] });
     return;
   }
   brainView.set({ cellMode: false, activation: null, fired: null, minFreq: $('#brain-min').value / 100 });
@@ -459,7 +510,7 @@ async function updateBrain(f, force) {
   }
   const b = brainCache[brainGen];
   $('#brain-sub').textContent = `Population of generation ${brainGen + 1}: ${b.edges.length} distinct working connections across all cells.`;
-  brainView.set({ edges: b.edges, nInner: b.n_inner });
+  brainView.set({ edges: b.edges, nInner: b.n_inner, off: b.off || [] });
 }
 
 init();

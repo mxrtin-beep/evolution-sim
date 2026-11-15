@@ -256,7 +256,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(b or {"edges": [], "gone": True})
             g = int(q.get("gen", len(sim.brains) - 1))
             g = min(max(g, 0), len(sim.brains) - 1)
-            return self._json({"gen": g, "gens": len(sim.brains), "edges": sim.brains[g], "n_inner": sim.n_inner})
+            return self._json({"gen": g, "gens": len(sim.brains), "edges": sim.brains[g], "n_inner": sim.n_inner,
+                               "off": sim.off_nodes})
 
 
 def serve(host="127.0.0.1", port=8000, open_browser=True):

@@ -26,6 +26,7 @@ DEFAULTS = {s[0]: s[6] for s in SETTINGS}
 DEFAULTS.update({
     "mode": "asexual", "partners": 1, "crossover": "gene", "offspring": "equal",
     "spawn": "anywhere", "seed": None, "rules": {}, "hazard_shuffle": False,
+    "disabled_sensors": [], "disabled_inner": [], "disabled_actions": [],
 })
 LIMITS = {s[0]: (s[3], s[4]) for s in SETTINGS}
 
@@ -60,6 +61,9 @@ def normalize_config(raw):
             pass
     cfg["rules"] = r.get("rules") or {}
     cfg["hazard_shuffle"] = bool(r.get("hazard_shuffle", False))
+    cfg["disabled_sensors"] = [k for k in (r.get("disabled_sensors") or []) if k in gn.SENSOR_IDX]
+    cfg["disabled_actions"] = [k for k in (r.get("disabled_actions") or []) if k in gn.ACTION_IDX]
+    cfg["disabled_inner"] = sorted({int(i) for i in (r.get("disabled_inner") or []) if str(i).lstrip("-").isdigit()})
     return cfg
 
 
@@ -81,6 +85,15 @@ class Simulation:
         self.steps = cfg["steps"]
         self.n_inner = cfg["n_inner"]
         self.rules = RuleSet(cfg["rules"], self.steps)
+        self.enabled = {
+            "sensors": [k not in cfg["disabled_sensors"] for k, _, _ in gn.SENSORS],
+            "inner": [i not in cfg["disabled_inner"] for i in range(self.n_inner)],
+            "actions": [k not in cfg["disabled_actions"] for k, _, _ in gn.ACTIONS],
+        }
+        S_, I_ = gn.N_SENSORS, self.n_inner
+        self.off_nodes = ([i for i, on in enumerate(self.enabled["sensors"]) if not on] +
+                          [S_ + i for i, on in enumerate(self.enabled["inner"]) if not on] +
+                          [S_ + I_ + i for i, on in enumerate(self.enabled["actions"]) if not on])
 
         # distance fields
         wall = self.terrain == world.WALL
@@ -142,7 +155,7 @@ class Simulation:
             self._shuffle_hazards()
         n, G = self.n, self.G
         self.colors = gn.genome_colors(G)
-        W, P = gn.decode(G, self.n_inner)
+        W, P = gn.decode(G, self.n_inner, self.enabled)
         F = gn.functional_mask(P, self.n_inner)
         self.W, self.F = W, F
         S, I = gn.N_SENSORS, self.n_inner
@@ -474,7 +487,7 @@ class Simulation:
         S, I = gn.N_SENSORS, self.n_inner
         return {
             "edges": edges, "alive": bool(self.alive[i]), "x": int(self.x[i]), "y": int(self.y[i]),
-            "color": int(self.colors[i]),
+            "color": int(self.colors[i]), "off": self.off_nodes,
             "activation": self.sens[i].tolist() + self.inner[i].tolist() + self.act[i].tolist(),
             "fired": (self.act[i] > 0.5 * 0.75 ** self.resp[i]).tolist(),
         }

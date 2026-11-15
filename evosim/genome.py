@@ -99,10 +99,19 @@ def crossover(rng, parents, mode):
     return parents[rows, pick, cols]
 
 
-def decode(genomes, n_inner):
+def _pick(options, ids):
+    """options[ids % len(options)], or zeros if there are no options."""
+    if len(options) == 0:
+        return np.zeros_like(ids)
+    return np.asarray(options)[ids % len(options)]
+
+
+def decode(genomes, n_inner, enabled=None):
     """Decode genomes into weight tensors.
 
     Node numbering: sensors [0, S), inner [S, S+I), actions [S+I, S+I+A).
+    `enabled` optionally switches neurons off: {"sensors": [bool]*S, "inner": [bool]*I, "actions": [bool]*A}.
+    Genes are remapped onto the neurons that remain, so switching a neuron off wastes no genes.
     Returns (W, P): W[n, src, dst] summed signed weights, P[n, src, dst] bool presence.
     """
     n, g = genomes.shape
@@ -115,14 +124,17 @@ def decode(genomes, n_inner):
     weight = (genomes & U32(0xFFFF)).astype(np.float64)
     weight = (weight - 32768.0) / 8192.0
 
-    if I == 0:
-        src_t[:] = 0
-        dst_t[:] = 1
-    src = np.where(src_t == 0, src_id % S, S + src_id % max(I, 1))
-    dst = np.where(dst_t == 0, S + dst_id % max(I, 1), S + I + dst_id % A)
-
+    en_s = np.flatnonzero(enabled["sensors"]) if enabled else np.arange(S)
+    en_i = np.flatnonzero(enabled["inner"][:I]) if enabled else np.arange(I)
+    en_a = np.flatnonzero(enabled["actions"]) if enabled else np.arange(A)
     W = np.zeros((n, m, m), np.float64)
     P = np.zeros((n, m, m), bool)
+    if len(en_s) + len(en_i) == 0 or len(en_i) + len(en_a) == 0:
+        return W, P                                  # nothing can be wired up
+    src_t = np.where(len(en_i) == 0, 0, np.where(len(en_s) == 0, 1, src_t))
+    dst_t = np.where(len(en_i) == 0, 1, np.where(len(en_a) == 0, 0, dst_t))
+    src = np.where(src_t == 0, _pick(en_s, src_id), S + _pick(en_i, src_id))
+    dst = np.where(dst_t == 0, S + _pick(en_i, dst_id), S + I + _pick(en_a, dst_id))
     rows = np.repeat(np.arange(n), g)
     np.add.at(W, (rows, src.ravel(), dst.ravel()), weight.ravel())
     P[rows, src.ravel(), dst.ravel()] = True

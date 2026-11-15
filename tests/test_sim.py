@@ -161,6 +161,36 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(len(tr["children"]["p"][0]), 3)
         self.assertLess(max(max(p) for p in tr["children"]["p"]), len(tr["survivors"]["x"]))
 
+    def test_disabled_neurons_are_never_wired(self):
+        t = world.build_terrain("square", "safe_right", 40, 40)
+        cfg = {"seed": 6, "steps": 10, "population": 60, "n_inner": 3, "n_genes": 12,
+               "disabled_sensors": ["Rnd", "Lx"], "disabled_inner": [1], "disabled_actions": ["Mfd", "Mrn"],
+               "rules": {"safe": {"enabled": True}}}
+        sim = run(cfg, t, 2)
+        off = set(sim.off_nodes)
+        self.assertEqual(len(off), 5)
+        for edges in sim.brains:
+            for s, d, _, _ in edges:
+                self.assertNotIn(s, off)
+                self.assertNotIn(d, off)
+        # genes are remapped, so disabling neurons still leaves the brains fully wired
+        self.assertGreater(sum(len(e) for e in sim.brains), 0)
+
+    def test_disabling_everything_is_safe(self):
+        t = world.build_terrain("square", "none", 40, 40)
+        cfg = {"seed": 1, "steps": 5, "population": 20, "n_inner": 2,
+               "disabled_sensors": [k for k, _, _ in gn.SENSORS], "disabled_inner": [0, 1]}
+        sim = run(cfg, t, 1)
+        self.assertEqual(sum(len(e) for e in sim.brains), 0)
+
+    def test_default_decode_unchanged_by_enabled_masks(self):
+        rng = np.random.default_rng(0)
+        g = gn.random_genomes(rng, 30, 10)
+        W1, P1 = gn.decode(g, 4)
+        on = {"sensors": [True] * gn.N_SENSORS, "inner": [True] * 4, "actions": [True] * gn.N_ACTIONS}
+        W2, P2 = gn.decode(g, 4, on)
+        self.assertTrue((P1 == P2).all() and np.allclose(W1, W2))
+
     def test_art_payload(self):
         t = world.build_terrain("square", "none", 32, 32)
         sim = run({"seed": 2, "population": 30, "steps": 5}, t, 1)
